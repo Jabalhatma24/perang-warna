@@ -44,6 +44,7 @@
     "wearRecoverPerSecond": 0.15,
     "labelLodThreshold": 120
   },
+  "help": { "prepHowToSeconds": 12, "tipSeconds": 5 },
   "layout": { "topEmptyEnd": 0.10, "hudEnd": 0.20, "arenaEnd": 0.60, "bannerEnd": 0.68 },
   "audio": {
     "volume": { "master": 0.8, "sfx": 0.7, "music": 0.25, "ui": 0.5 },

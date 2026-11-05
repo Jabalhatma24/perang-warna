@@ -120,6 +120,12 @@ Batasan yang perlu diketahui:
 - Di Overtime, ingatkan bahwa efek gift sedang 2x lipat. Itu momen paling kuat untuk memancing gift.
 - Satu ronde sekitar 4 menit, jadi target 5–6 ronde per sesi 30 menit sudah cukup untuk membangun streak dan mahkota.
 
+## 9. Pembaruan: siaran tanpa suara host
+
+Host memutuskan untuk sementara tidak bersuara, jadi saran di bagian 8 yang mengandalkan ucapan host dan Mode Bicara di bagian 5 belum terpakai. Penjelasan kini ada di dalam game; rinciannya ada di bagian "Siaran tanpa suara host" di `README.md`.
+
+Karena suara game menjadi satu-satunya audio siaran, pastikan suara internal HP benar-benar masuk ke siaran. Keterbacaan teks barunya baru diperiksa lewat tangkapan layar di laptop, belum di HP sungguhan.
+
 ---
 
 Tidak ada commit karena folder ini bukan repositori git. Data uji di `data/` sudah dibersihkan, jadi Klasemen Abadi mulai dari nol, dan `.venv` tetap ada supaya `run.sh` langsung siap dipakai.

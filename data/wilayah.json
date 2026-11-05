@@ -4,7 +4,7 @@
     { "code": "SULAWESI", "name": "Sulawesi", "no": 2, "color": "#007AFF", "label": "SL", "aliases": ["sulawesi"] },
     { "code": "KALIMANTAN", "name": "Kalimantan", "no": 3, "color": "#34C759", "label": "KL", "aliases": ["kalimantan", "borneo"] },
     { "code": "SUMATERA", "name": "Sumatera", "no": 4, "color": "#FFCC00", "label": "SM", "aliases": ["sumatera", "sumatra"] },
-    { "code": "BALI_NUSRA", "name": "Bali & Nusa Tenggara", "no": 5, "color": "#FF9500", "label": "BN", "aliases": ["nusra", "nusa tenggara"] },
+    { "code": "BALI_NUSRA", "name": "Bali & Nusa Tenggara", "short": "Bali & Nusra", "no": 5, "color": "#FF9500", "label": "BN", "aliases": ["nusra", "nusa tenggara"] },
     { "code": "MALUKU", "name": "Maluku", "no": 6, "color": "#AF52DE", "label": "ML", "aliases": ["maluku"] },
     { "code": "PAPUA", "name": "Papua", "no": 7, "color": "#30B0C7", "label": "PP", "aliases": ["papua"] }
   ],

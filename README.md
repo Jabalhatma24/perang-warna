@@ -84,6 +84,22 @@ Pindah kubu hanya bisa saat fase Persiapan. Kubu: 1 Jawa, 2 Sulawesi, 3 Kalimant
 
 Gift yang datang di luar pertempuran ditahan dan efeknya aktif saat perang berikutnya mulai.
 
+## Siaran tanpa suara host
+
+Game menjelaskan dirinya sendiri, jadi host tidak perlu bicara:
+
+- **Kartu Cara Main** tampil selama 12 detik pertama Persiapan, lalu berganti ke Klasemen Abadi. Selama Klasemen masih kosong, kartu ini tampil sepanjang Persiapan.
+- **Papan nama markas** menampilkan angka dan nama lengkap kubu, misalnya `1 Jawa`.
+- **Papan Win** menampilkan nama di samping singkatan, misalnya `JW Jawa 0`.
+- **Baris tips** di bawah banner selalu tampil dan berganti tiap 5 detik, termasuk saat banner ramai oleh gift.
+
+Durasinya diatur lewat `help.prepHowToSeconds` dan `help.tipSeconds` di `config.json`. Nama pendek kubu ada di kolom `short` pada `data/wilayah.json`.
+
+Teks siap tempel untuk TikTok:
+
+- **Judul live:** `Perang Warna! Ketik 1-7`
+- **Komentar yang disematkan:** `Ketik angka kubumu: 1 Jawa 2 Sulawesi 3 Kalimantan 4 Sumatera 5 Bali-Nusra 6 Maluku 7 Papua. Warna terluas menang!`
+
 ## Mengubah data
 
 - `config.json`: durasi fase, ambang tier, cooldown, keseimbangan, batas zona layar, audio. Muat ulang server setelah mengubahnya.
