@@ -60,6 +60,7 @@ button:focus-visible, input:focus-visible {
 
 #start h1 { margin: 0; font-size: clamp(36px, 11vw, 72px); letter-spacing: 0.04em; }
 #start p { margin: 0 0 16px; color: var(--muted); font-size: clamp(16px, 4.5vw, 24px); }
+#startHint { max-width: 32em; color: var(--muted); font-size: clamp(13px, 3.6vw, 16px); }
 
 #startBtn {
   min-width: 70%;

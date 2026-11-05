@@ -4,8 +4,9 @@ const BACKOFF_MS = [1000, 2000, 5000, 10000];
 
 export class Net {
   // getRole() dipanggil setiap HELLO supaya host yang sudah digantikan tetap menjadi view.
-  constructor({ getRole, onMessage, onOpen, onClose }) {
+  constructor({ getRole, getHostKey, onMessage, onOpen, onClose }) {
     this.getRole = getRole;
+    this.getHostKey = getHostKey;
     this.onMessage = onMessage;
     this.onOpen = onOpen;
     this.onClose = onClose;
@@ -13,6 +14,7 @@ export class Net {
     this.attempt = 0;
     this.seq = 0;
     this.everOpened = false;
+    this.stopped = false;
   }
 
   get isOpen() {
@@ -26,7 +28,8 @@ export class Net {
     ws.onopen = () => {
       this.attempt = 0;
       this.everOpened = true;
-      this.send('HELLO', { role: this.getRole() });
+      const role = this.getRole();
+      this.send('HELLO', role === 'host' ? { role, key: this.getHostKey() } : { role });
       this.onOpen?.();
     };
     ws.onmessage = (event) => {
@@ -40,9 +43,14 @@ export class Net {
       const delay = BACKOFF_MS[Math.min(this.attempt, BACKOFF_MS.length - 1)];
       this.attempt += 1;
       this.onClose?.();
-      setTimeout(() => this.connect(), delay);
+      if (!this.stopped) setTimeout(() => this.connect(), delay);
     };
     ws.onerror = () => ws.close();
+  }
+
+  // Server sudah menolak koneksi ini, jadi mencoba ulang hanya menambah beban.
+  stop() {
+    this.stopped = true;
   }
 
   send(type, data) {

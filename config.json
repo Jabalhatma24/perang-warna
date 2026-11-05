@@ -1,5 +1,5 @@
 {
-  "server": { "port": 8080 },
+  "server": { "port": 8080, "maxViewers": 10 },
   "phases": { "prep": 20, "battle": 180, "overtime": 30, "suddenDeath": 20, "crown": 20 },
   "gift": {
     "tiers": { "MICRO": 1, "MID": 10, "SULTAN": 100, "MEGA": 1000 },

@@ -3,15 +3,18 @@ from __future__ import annotations
 
 import argparse
 import asyncio
+import hmac
 import json
 import logging
-import random
+import os
+import secrets
 import signal
 import socket
 import sys
 import time
 from collections import deque
 from pathlib import Path
+from urllib.parse import quote
 
 from aiohttp import WSMsgType, web
 
@@ -30,12 +33,18 @@ DATA_DIR = ROOT / "data"
 CLIENT_QUEUE_LIMIT = 2000
 ROLES = ("host", "view")
 HUB_KEY: web.AppKey["Hub"] = web.AppKey("hub")
+HOST_KEY_FILE = DATA_DIR / "host.key"
+HOST_KEY_ENV = "PERANG_HOST_KEY"
+MIN_HOST_KEY_LENGTH = 16
+CLOSE_VIEWERS_FULL = 4001
 
 
 class Client:
-    def __init__(self, ws: web.WebSocketResponse):
+    def __init__(self, ws: web.WebSocketResponse, remote: str | None = None):
         self.ws = ws
+        self.remote = remote
         self.role: str | None = None
+        self.closing = False
         self.outbox: deque[str] = deque(maxlen=CLIENT_QUEUE_LIMIT)
         self.wake = asyncio.Event()
 
@@ -49,14 +58,19 @@ class Client:
             self.wake.clear()
             while self.outbox and not self.ws.closed:
                 await self.ws.send_str(self.outbox.popleft())
+            if self.closing:
+                await self.ws.close(code=CLOSE_VIEWERS_FULL)
+                return
 
 
 class Hub:
     """Menerima event netral dari TikTok/simulator dan melayani klien WebSocket."""
 
     def __init__(self, config: dict, wilayah: Wilayah, moderator: Moderator, storage: Storage,
-                 *, simulate_mode: bool = False, rate: str = "normal", has_tiktok: bool = False):
+                 *, simulate_mode: bool = False, rate: str = "normal", has_tiktok: bool = False,
+                 host_key: str | None = None):
         self.config = config
+        self.host_key = host_key  # None hanya untuk tes; CLI selalu mengisinya lewat resolve_host_key()
         self.wilayah = wilayah
         self.moderator = moderator
         self.storage = storage
@@ -86,11 +100,18 @@ class Hub:
         return json.dumps(message, ensure_ascii=False, separators=(",", ":"))
 
     def broadcast(self, msg_type: str, data: dict, user: dict | None = None) -> None:
-        if not self.clients:
+        # Koneksi yang belum HELLO atau sudah ditolak tidak menerima data apa pun.
+        targets = [client for client in self.clients if client.role in ROLES]
+        if not targets:
             return
         text = self.envelope(msg_type, data, user)
-        for client in self.clients:
+        for client in targets:
             client.enqueue(text)
+
+    def to_host(self, msg_type: str, data: dict, user: dict | None = None) -> None:
+        """Event mentah penonton hanya untuk host; penonton pasif cukup melihat snapshot."""
+        if self.active_host is not None:
+            self.active_host.enqueue(self.envelope(msg_type, data, user))
 
     def send_to(self, client: Client, msg_type: str, data: dict) -> None:
         client.enqueue(self.envelope(msg_type, data))
@@ -109,7 +130,7 @@ class Hub:
         user = self.clean_user(raw_user)
         action = self.chat.handle(user["id"], text, time.monotonic())
         if action is not None:
-            self.broadcast("CHAT_ACTION", action, user)
+            self.to_host("CHAT_ACTION", action, user)
 
     def on_gift(self, raw_user: dict, gift_id, gift_name: str, unit_coins: int, group_id,
                 repeat_count: int, repeat_end: bool, streakable: bool) -> None:
@@ -121,7 +142,7 @@ class Hub:
         )
         if payload is None:
             return
-        self.broadcast("GIFT_TRIGGER", payload, user)
+        self.to_host("GIFT_TRIGGER", payload, user)
         if payload["tier"] == "MEGA" and payload["delta"] > 0:
             is_bot = user["id"].startswith("sim_")
             if (not is_bot or self.simulate_mode) and self.storage.add_prasasti(user["nick"]):
@@ -136,7 +157,7 @@ class Hub:
         user = self.clean_user(raw_user)
         team = self.chat.team_of(user["id"])
         if team is not None:
-            self.broadcast("CAPTAIN", {"reason": reason, "team": team}, user)
+            self.to_host("CAPTAIN", {"reason": reason, "team": team}, user)
 
     def on_viewers(self, count: int) -> None:
         self.broadcast("JOIN", {"viewerCount": int(count)})
@@ -170,22 +191,49 @@ class Hub:
         self.broadcast("STATUS", self.status())
 
     # ----- pesan dari frontend -----
+    def host_key_matches(self, supplied) -> bool:
+        if self.host_key is None:
+            return True
+        if not isinstance(supplied, str):
+            return False
+        return hmac.compare_digest(supplied.encode(), self.host_key.encode())
+
+    def view_count(self) -> int:
+        return sum(1 for c in self.clients if c.role == "view")
+
     def handle_hello(self, client: Client, data: dict) -> None:
-        role = data.get("role")
-        client.role = role if role in ROLES else "view"
+        # Satu HELLO per koneksi: menebak kunci harus membuka koneksi baru,
+        # dan peran yang sudah ditetapkan tidak bisa diubah di tengah jalan.
+        if client.role is not None:
+            return
+        role = "host" if data.get("role") == "host" else "view"
+        if role == "host" and not self.host_key_matches(data.get("key")):
+            log.warning("Permintaan host ditolak dari %s", client.remote)
+            self.send_to(client, "HOST_DENIED", {})
+            role = "view"
+        if role == "view" and self.view_count() >= self.config["server"].get("maxViewers", 10):
+            client.role = "rejected"
+            client.closing = True
+            self.send_to(client, "VIEW_FULL", {})
+            return
+
+        client.role = role
         self.send_to(client, "STATUS", self.status())
         self.send_to(client, "SCOREBOARD", self.storage.scoreboard())
-        if client.role == "host":
-            self.active_host = client  # host terbaru menggantikan host lama
+        if role == "host":
+            previous = self.active_host
+            if previous is not None and previous is not client:
+                # Host lama diberi tahu lalu menjadi view, supaya layarnya tetap menerima snapshot.
+                self.send_to(previous, "HOST_INFO", {"active": False, "viewClients": 0})
+                previous.role = "view"
+            self.active_host = client  # host terbaru yang punya kunci menggantikan host lama
         elif self.last_snapshot is not None:
             client.enqueue(self.last_snapshot)
         self.notify_hosts()
 
     def notify_hosts(self) -> None:
-        views = sum(1 for c in self.clients if c.role == "view")
-        for client in self.clients:
-            if client.role == "host":
-                self.send_to(client, "HOST_INFO", {"active": client is self.active_host, "viewClients": views})
+        if self.active_host is not None:
+            self.send_to(self.active_host, "HOST_INFO", {"active": True, "viewClients": self.view_count()})
 
     def handle_round_result(self, client: Client, data: dict) -> None:
         if client is not self.active_host:
@@ -216,6 +264,9 @@ class Hub:
                 other.enqueue(text)
 
     def handle_message(self, client: Client, raw: str) -> None:
+        # Penonton tidak punya pesan yang sah setelah HELLO, jadi tidak perlu diurai sama sekali.
+        if client.role is not None and client is not self.active_host:
+            return
         try:
             message = json.loads(raw)
             msg_type = message["type"]
@@ -223,7 +274,7 @@ class Hub:
             if not isinstance(data, dict):
                 raise ValueError("data bukan objek")
         except (ValueError, KeyError, TypeError) as error:
-            log.warning("Pesan WebSocket tidak valid: %s", error)
+            log.debug("Pesan WebSocket tidak valid: %s", error)
             return
 
         if msg_type == "HELLO":
@@ -244,7 +295,7 @@ class Hub:
             await asyncio.sleep(1)
             if self.likes:
                 likes, self.likes = self.likes, {}
-                self.broadcast("LIKE_BATCH", {"likes": likes})
+                self.to_host("LIKE_BATCH", {"likes": likes})
 
     async def stats_loop(self) -> None:
         while True:
@@ -254,9 +305,9 @@ class Hub:
 
 async def ws_handler(request: web.Request) -> web.WebSocketResponse:
     hub = request.app[HUB_KEY]
-    ws = web.WebSocketResponse(heartbeat=20, max_msg_size=4 * 1024 * 1024)
+    ws = web.WebSocketResponse(heartbeat=20, max_msg_size=1024 * 1024)
     await ws.prepare(request)
-    client = Client(ws)
+    client = Client(ws, request.remote)
     hub.clients.add(client)
     pump = asyncio.create_task(client.pump())
     try:
@@ -312,11 +363,39 @@ def lan_ip() -> str:
         probe.close()
 
 
-def print_access_info(port: int) -> None:
-    url = f"http://{lan_ip()}:{port}"
-    print(f"\nBuka game di HP (Wi-Fi yang sama): {url}")
-    print(f"Pratinjau di laptop (tanpa mengambil alih host): {url}/?role=view")
-    print(f"Uji suara: {url}/?sfxtest=1\n")
+def resolve_host_key(cli_key: str | None, path: Path = HOST_KEY_FILE) -> str:
+    """Urutan: --key, env PERANG_HOST_KEY, berkas data/host.key, lalu buat baru.
+
+    Server tidak pernah berjalan tanpa kunci. Kunci buatan disimpan supaya tetap sama setelah
+    restart, sehingga HP operator tidak kehilangan peran host di tengah live.
+    """
+    key = (cli_key or os.environ.get(HOST_KEY_ENV) or "").strip()
+    if not key and path.exists():
+        key = path.read_text(encoding="utf-8").strip()
+    if not key:
+        key = secrets.token_urlsafe(24)
+        descriptor = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
+        with os.fdopen(descriptor, "w", encoding="utf-8") as handle:
+            handle.write(key + "\n")
+        print(f"Kunci host baru dibuat: {path}")
+    if len(key) < MIN_HOST_KEY_LENGTH:
+        raise SystemExit(f"Kunci host terlalu pendek: minimal {MIN_HOST_KEY_LENGTH} karakter.")
+    return key
+
+
+def operator_url(base: str, key: str) -> str:
+    # Kunci diletakkan di fragmen (#) karena bagian ini tidak ikut terkirim dalam permintaan HTTP.
+    return f"{base}/#key={quote(key, safe='')}"
+
+
+def print_access_info(base: str, key: str) -> None:
+    url = operator_url(base, key)
+    print("\nTautan OPERATOR, RAHASIA (QR di bawah berisi tautan ini):")
+    print(f"  {url}")
+    print("Tautan penonton, hanya menonton:")
+    print(f"  {base}/")
+    print(f"Uji suara: {base}/?sfxtest=1")
+    print("Buka tautan operator dan tekan MULAI SEBELUM siaran layar dimulai. Jangan siarkan terminal ini.\n")
     try:
         import qrcode
 
@@ -338,6 +417,11 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--keep-session", action="store_true", help="lanjutkan Win sesi setelah crash")
     parser.add_argument("--reset-all", action="store_true", help="hapus Klasemen Abadi dan Hall of Fame")
     parser.add_argument("--port", type=int, default=None, help="port server (bawaan dari config.json)")
+    parser.add_argument("--key", default=None,
+                        help=f"kunci host, minimal {MIN_HOST_KEY_LENGTH} karakter. Di VPS lebih aman lewat env {HOST_KEY_ENV}")
+    parser.add_argument("--bind", default="0.0.0.0",
+                        help="alamat dengar. Pakai 127.0.0.1 di VPS yang memakai reverse proxy HTTPS")
+    parser.add_argument("--public-url", default=None, help="alamat publik untuk tautan, misal https://game.domainku.id")
     return parser.parse_args(argv)
 
 
@@ -352,6 +436,7 @@ def report_task_exit(task: asyncio.Task) -> None:
 async def serve(args: argparse.Namespace) -> None:
     with open(ROOT / "config.json", encoding="utf-8") as handle:
         config = json.load(handle)
+    host_key = resolve_host_key(args.key)
     wilayah = Wilayah.load(DATA_DIR / "wilayah.json")
     moderator = Moderator.load(DATA_DIR / "blocklist.txt")
     # Simulasi memakai berkas terpisah supaya tidak mengotori Klasemen Abadi asli.
@@ -359,18 +444,19 @@ async def serve(args: argparse.Namespace) -> None:
     storage = Storage(wins_file, wilayah.codes, keep_session=args.keep_session, reset_all=args.reset_all)
 
     hub = Hub(config, wilayah, moderator, storage, simulate_mode=args.simulate, rate=args.rate,
-              has_tiktok=bool(args.username))
+              has_tiktok=bool(args.username), host_key=host_key)
     app = build_app(hub)
     runner = web.AppRunner(app, handle_signals=False)
     await runner.setup()
     port = args.port or config["server"]["port"]
     try:
-        await web.TCPSite(runner, "0.0.0.0", port).start()
+        await web.TCPSite(runner, args.bind, port).start()
     except OSError as error:
         await runner.cleanup()
         raise SystemExit(f"Port {port} tidak bisa dipakai: {error}") from error
 
-    print_access_info(port)
+    base = (args.public_url or f"http://{lan_ip()}:{port}").rstrip("/")
+    print_access_info(base, host_key)
     tasks = [asyncio.create_task(hub.like_loop()), asyncio.create_task(hub.stats_loop())]
     if args.simulate:
         hub.set_sim(True)

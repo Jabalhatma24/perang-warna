@@ -21,7 +21,27 @@ const PHASE_LABEL = {
   PREP: 'PERSIAPAN', BATTLE: 'PERTEMPURAN', OVERTIME: 'OVERTIME', SUDDEN: 'SUDDEN DEATH', CROWN: 'PENOBATAN',
 };
 
-let role = params.get('role') === 'view' ? 'view' : 'host';
+const HOST_KEY_STORAGE = 'pw.hostKey';
+function readHostKey() {
+  if (window.__hostKey) return window.__hostKey;
+  try {
+    return localStorage.getItem(HOST_KEY_STORAGE) || '';
+  } catch (error) {
+    return '';
+  }
+}
+function forgetHostKey() {
+  hostKey = '';
+  window.__hostKey = '';
+  try {
+    localStorage.removeItem(HOST_KEY_STORAGE);
+  } catch (error) {
+    console.info('Penyimpanan tidak tersedia', error);
+  }
+}
+let hostKey = readHostKey();
+// Tanpa kunci selalu menjadi penonton. Server tetap memeriksa kuncinya, jadi ini bukan satu-satunya penjaga.
+let role = hostKey && params.get('role') !== 'view' ? 'host' : 'view';
 let cfg;
 let wilayah;
 let teams = [];
@@ -1674,7 +1694,17 @@ function onMessage(message) {
       break;
     case 'HOST_INFO':
       viewClients = message.data.viewClients;
-      if (role === 'host' && message.data.active === false) becomeViewer();
+      if (role === 'host' && message.data.active === false) {
+        becomeViewer('Host lain sedang aktif. Layar ini hanya menonton.', true);
+      }
+      break;
+    case 'HOST_DENIED':
+      forgetHostKey();
+      becomeViewer('Kunci host ditolak. Buka lagi tautan operator dari terminal server.', false);
+      break;
+    case 'VIEW_FULL':
+      net.stop();
+      showNotice('Kursi penonton sudah penuh.', false);
       break;
     case 'STATE_SNAPSHOT':
       if (role === 'view') applySnapshot(message.data);
@@ -1722,14 +1752,20 @@ function drainQueue(now) {
   }
 }
 
-function becomeViewer() {
+function showNotice(text, canTakeOver) {
+  document.getElementById('takeoverText').textContent = text;
+  document.getElementById('takeoverBtn').hidden = !canTakeOver;
+  document.getElementById('takeover').hidden = false;
+}
+
+function becomeViewer(notice, canTakeOver) {
   role = 'view';
   localSim?.stop();
   Audio.setMusicIntensity(-1);
   Audio.stop('suddenDeath');
   queue.length = 0;
   queueHead = 0;
-  document.getElementById('takeover').hidden = false;
+  showNotice(notice, canTakeOver);
 }
 
 // ======================================================================
@@ -2551,6 +2587,19 @@ function setupKeepAwake() {
   });
 }
 
+function isInstalledApp() {
+  return matchMedia('(display-mode: standalone), (display-mode: fullscreen)').matches;
+}
+
+// Keluar dari fullscreen memunculkan bilah alamat, dan browser hanya mengizinkan masuk lagi lewat ketukan.
+function setupFullscreenGuard() {
+  document.addEventListener('fullscreenchange', () => {
+    if (document.fullscreenElement || role !== 'host' || isInstalledApp()) return;
+    toast('Ketuk layar untuk kembali ke layar penuh');
+    document.addEventListener('pointerdown', startFullscreen, { once: true });
+  });
+}
+
 function startFullscreen() {
   const root = document.documentElement;
   const request = root.requestFullscreen || root.webkitRequestFullscreen;
@@ -2564,6 +2613,7 @@ function beginGame() {
   bootId = `${Date.now().toString(36)}${Math.floor(Math.random() * 1e6).toString(36)}`;
   net = new Net({
     getRole: () => role,
+    getHostKey: () => hostKey,
     onMessage,
     onOpen: () => {
       backendUp = true;
@@ -2610,6 +2660,8 @@ function setupStartScreen() {
     screenEl.hidden = true;
     beginGame();
   }, { once: true });
+  document.getElementById('startHint').hidden = isInstalledApp();
+  setupFullscreenGuard();
   screenEl.hidden = false;
 }
 

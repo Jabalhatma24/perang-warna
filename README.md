@@ -36,9 +36,9 @@ Skrip membuat virtualenv, memasang dependensi, menjalankan `pytest`, lalu menyal
 ## Menghubungkan HP
 
 1. Sambungkan HP dan laptop ke Wi-Fi yang sama.
-2. Pindai QR di terminal, atau buka alamat `http://<IP-Laptop>:8080`.
+2. Pindai QR di terminal, atau buka **tautan operator** yang tercetak di sana. Tautan ini berisi kunci host, jadi jangan dibagikan. Cukup sekali per perangkat, karena kuncinya tersimpan di HP dan langsung dihapus dari alamat.
 3. Di Windows, izinkan Python di Windows Firewall untuk jaringan **Private**.
-4. Tekan **MULAI**. Satu ketukan itu membuka fullscreen, mengunci potret, dan menyalakan audio.
+4. Tekan **MULAI** sebelum siaran layar dimulai. Satu ketukan itu membuka fullscreen, mengunci potret, dan menyalakan audio.
 
 Pakai **Chrome di Android**. Safari di iPhone tidak mendukung fullscreen untuk halaman biasa.
 
@@ -48,11 +48,55 @@ Pakai **Chrome di Android**. Safari di iPhone tidak mendukung fullscreen untuk h
 
 | Alamat | Fungsi |
 | --- | --- |
-| `/?role=view` | Pratinjau di laptop. Hanya menonton dan tidak bersuara |
+| `/` tanpa kunci | Penonton. Hanya menonton dan tidak bersuara |
+| `/#key=<kunci>` | Tautan operator, menyimpan kunci di perangkat itu |
+| `/?role=view` | Pratinjau di perangkat yang sudah menyimpan kunci, tanpa mengambil alih host |
 | `/?debug=1` | Menampilkan FPS, prajurit, partikel, dan antrean |
 | `/?sfxtest=1` | Uji semua suara, intensitas musik, dan spam gift |
 
-**Hanya satu host yang aktif.** Membuka alamat utama di perangkat kedua akan mengambil alih peran host, dan layar lama berubah menjadi penonton. Untuk pratinjau di laptop selalu pakai `?role=view`.
+**Hanya satu host yang aktif.** Perangkat kedua yang menyimpan kunci akan mengambil alih peran host saat MULAI ditekan, dan layar lama berubah menjadi penonton. Perangkat tanpa kunci tidak bisa mengambil alih.
+
+## Keamanan
+
+Server selalu berjalan dengan kunci host, dan kunci diperiksa di server. Tanpa kunci, klien hanya bisa menonton. Hasil ronde, simulasi, dan snapshot darinya diabaikan.
+
+**Sumber kunci**, dari yang paling diutamakan: `--key`, env `PERANG_HOST_KEY`, berkas `data/host.key`. Jika ketiganya kosong, kunci dibuat otomatis di `data/host.key` dan tidak ikut ke git. Minimal 16 karakter.
+
+**Jika kunci bocor:** hapus `data/host.key`, jalankan ulang server, lalu buka tautan operator yang baru. Perangkat dengan kunci lama otomatis turun menjadi penonton.
+
+**Batas penonton:** `server.maxViewers` di `config.json`, bawaan 10. Host tetap bisa masuk saat kursi penuh. Isi `0` jika tidak butuh penonton, karena setiap ada penonton HP operator ikut mengirim snapshot.
+
+**Bilah alamat di siaran:** urutannya buka game, tekan MULAI, baru mulai siaran layar. Jika fullscreen tertutup, bilah alamat muncul lagi sampai layar diketuk, dan browser tidak mengizinkan halaman menutupnya sendiri.
+
+**Pasang sebagai aplikasi (PWA):** Chrome hanya mengizinkan lewat HTTPS. Di `http://IP:port` ia menolak dengan `not-from-secure-origin`, jadi PWA butuh domain dan HTTPS.
+
+### Memilih tempat server
+
+| | Laptop, Wi-Fi privat | VPS, HTTP saja | VPS, domain + HTTPS |
+| --- | --- | --- | --- |
+| Alamat bocor di siaran | Tidak berguna bagi orang luar | Bisa dibuka siapa pun, hanya sebagai penonton | Bisa dibuka siapa pun, hanya sebagai penonton |
+| Kunci di jaringan | Hanya di Wi-Fi sendiri | **Tidak terenkripsi** di internet | Terenkripsi |
+| Tanpa bilah alamat (PWA) | Tidak bisa, tapi alamatnya tidak berguna | Tidak bisa | Bisa |
+| Ketergantungan | Laptop dan Wi-Fi menyala | VPS | VPS, domain, sertifikat |
+
+Rekomendasi: **laptop dengan Wi-Fi privat** untuk siaran biasa. Jika harus VPS, pakai domain dan HTTPS.
+
+### Menjalankan di VPS dengan HTTPS
+
+Contoh ini belum diuji di VPS sungguhan.
+
+```bash
+./run.sh --username @akunku --bind 127.0.0.1 --public-url https://game.domainku.id
+```
+
+```
+# Caddyfile: sertifikat HTTPS dan WebSocket diurus otomatis oleh Caddy
+game.domainku.id {
+    reverse_proxy 127.0.0.1:8080
+}
+```
+
+Tutup port 8080 di firewall VPS, lalu pasang lewat Chrome di HP: buka tautan operator, menu ⋮, **Tambahkan ke Layar Utama**. Tautan operator tercetak di terminal dan log layanan, jadi jangan bagikan log itu.
 
 ## Kontrol operator
 

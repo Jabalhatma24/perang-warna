@@ -126,6 +126,12 @@ Host memutuskan untuk sementara tidak bersuara, jadi saran di bagian 8 yang meng
 
 Karena suara game menjadi satu-satunya audio siaran, pastikan suara internal HP benar-benar masuk ke siaran. Keterbacaan teks barunya baru diperiksa lewat tangkapan layar di laptop, belum di HP sungguhan.
 
+## 10. Pembaruan: kunci host dan kebocoran alamat
+
+Peringatan di bagian 3 tentang perangkat lain yang bisa mengambil alih host tidak berlaku lagi untuk perangkat tanpa kunci. Server kini selalu memakai kunci host, dan klien tanpa kunci hanya bisa menonton. Panduan lengkap ada di bagian "Keamanan" pada `README.md`.
+
+Sudah diuji di Chrome tanpa tampilan terhadap server sungguhan, termasuk upaya merebut host, tetapi belum di HP, HTTPS, atau VPS sungguhan.
+
 ---
 
-Tidak ada commit karena folder ini bukan repositori git. Data uji di `data/` sudah dibersihkan, jadi Klasemen Abadi mulai dari nol, dan `.venv` tetap ada supaya `run.sh` langsung siap dipakai.
+Saat laporan ini pertama ditulis, tidak ada commit karena folder ini bukan repositori git. Data uji di `data/` sudah dibersihkan, jadi Klasemen Abadi mulai dari nol, dan `.venv` tetap ada supaya `run.sh` langsung siap dipakai.
