@@ -173,6 +173,44 @@ Jangan meminimalkan jendela game. Flag di perintah tadi menjaga game tetap berja
 
 **OBS sebagai alternatif:** tambahkan Browser Source ke `http://localhost:8080/#key=<kunci>` dengan ukuran 1080x1920, centang kontrol audio lewat OBS, lalu klik kanan > Interact untuk menekan START.
 
+## Siaran dari OBS di Linux
+
+TikTok LIVE Studio tidak tersedia untuk Linux, jadi siaran memakai OBS dan jalur RTMP.
+
+**Sekali saja, dengan OBS tertutup:**
+
+```bash
+python3 tools/setup_obs_profile.py    # 1080x1920, 60 FPS, NVENC, 6000 Kbps
+```
+
+**Setiap siaran:**
+
+```bash
+./run.sh --username @akunku    # terminal 1
+./tools/start_obs.sh           # terminal 2
+```
+
+Selalu buka OBS lewat `tools/start_obs.sh`. Skrip ini membuat OBS merender di GPU NVIDIA; tanpa itu sekitar 14% frame tertinggal pada 60 FPS. Jika driver NVIDIA Flatpak tidak ada, pakai `python3 tools/setup_obs_profile.py --encoder qsv --fps 30 --bitrate 4000`.
+
+Di Browser Source, game otomatis berjalan tepat 1:1 pada 1080x1920 dan langsung mulai lewat `?autostart=1`.
+
+### Mengambil Stream Key
+
+Jika TikTok tidak memberi Stream Key, ada alat pihak ketiga yang mengambilnya lewat akun Streamlabs:
+
+```bash
+python3 tools/get_stream_key.py
+```
+
+- **Risiko:** alat ini bukan produk TikTok atau Streamlabs, dan menyamar sebagai Streamlabs Desktop. Ini bisa melanggar ketentuan layanan, dan risikonya ada pada akun Anda.
+- **Syarat:** akun tetap harus punya akses Streamlabs TikTok LIVE. Alat ini tidak bisa memberikannya.
+- **Rahasia:** token tersimpan tanpa enkripsi di `tools/.streamlabs-keygen/repo/config.json` dan tidak ikut ke git. Jangan tampilkan jendela alat ini saat siaran.
+- **Mengakhiri siaran:** pakai tombol END LIVE di alat ini, bukan tombol berhenti di OBS.
+
+Skrip mengunci alat pada satu commit yang sudah dibaca kodenya. Alatnya sendiri belum pernah dijalankan dalam pengujian proyek ini.
+
+`Loukious/TikTokStreamKeyGenerator` sengaja tidak dipakai: alat itu menyamar sebagai TikTok LIVE Studio dengan sidik jari perangkat acak dan butuh layanan penandatanganan berbayar milik pihak ketiga untuk lolos pemeriksaan integritas TikTok.
+
 ## Mengubah data
 
 - `config.json`: durasi fase, ambang tier, cooldown, keseimbangan, batas zona layar, audio. Muat ulang server setelah mengubahnya.

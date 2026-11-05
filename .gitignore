@@ -7,3 +7,4 @@ data/host.key
 data/wins.continental.json
 data/wins.continental.sim.json
 .chrome-studio/
+tools/.streamlabs-keygen/

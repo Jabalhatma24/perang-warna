@@ -50,6 +50,13 @@ const teamIndex = new Map();
 const canvas = document.getElementById('game');
 const ctx = canvas.getContext('2d', { alpha: false });
 let renderScale = 1;
+let renderScaleY = 1;
+// Skala terendah saat HP kewalahan: setara batas lama, supaya game tetap lancar.
+const MIN_RENDER_SCALE = 0.72;
+const LOW_FPS = 45;
+const LOW_FPS_SECONDS = 4;
+let qualityFactor = 1;
+let lowFpsSeconds = 0;
 
 // ----- zona tata letak -----
 let hudTop = 0;
@@ -346,8 +353,9 @@ function setupSprites() {
   }
 
   soldierSprites = teams.map((team) => {
-    const sprite = makeCanvas(64, 64);
+    const sprite = makeCanvas(128, 128); // Titan bisa berdiameter lebih dari 80 piksel
     const c = sprite.getContext('2d');
+    c.scale(2, 2);
     c.beginPath();
     c.arc(32, 32, 28, 0, TAU);
     c.fillStyle = team.color;
@@ -495,6 +503,34 @@ function setupSprites() {
   overlayCtx = overlayCanvas.getContext('2d');
 }
 
+// Teks digambar pada ukuran piksel tujuan, bukan digambar 1080 lalu diskalakan.
+function resizeUiLayers() {
+  const layers = [[hudCanvas, hudCtx, hudH], [bannerCanvas, bannerCtx, bannerH], [overlayCanvas, overlayCtx, arenaH]];
+  for (const [layer, c, height] of layers) {
+    layer.width = canvas.width;
+    layer.height = Math.round(height * renderScaleY);
+    c.setTransform(layer.width / W, 0, 0, layer.height / height, 0, 0);
+  }
+  nextHudAt = 0;
+  bannerDirty = true;
+  overlayKind = '';
+}
+
+function outlinedText(c, text, x, y, width = 4) {
+  c.lineJoin = 'round';
+  c.lineWidth = width;
+  c.strokeStyle = 'rgba(0,0,0,0.85)';
+  c.strokeText(text, x, y);
+  c.fillText(text, x, y);
+}
+
+// Menyalin lapisan 1:1 ke piksel layar. Posisi pecahan akan membuat seluruh teks buram.
+function blitLayer(layer, logicalY) {
+  ctx.setTransform(1, 0, 0, 1, 0, 0);
+  ctx.drawImage(layer, 0, Math.round(logicalY * renderScaleY));
+  ctx.setTransform(renderScale, 0, 0, renderScaleY, 0, 0);
+}
+
 function setupPools() {
   maxSoldiers = cfg.limits.soldiers;
   maxParticles = cfg.limits.particles;
@@ -532,18 +568,39 @@ function setupPools() {
 }
 
 function resize() {
-  const scale = Math.min(window.innerWidth / W, window.innerHeight / H);
-  const cssW = W * scale;
-  const cssH = H * scale;
-  const dpr = Math.min(window.devicePixelRatio || 1, 2);
+  const fit = Math.min(window.innerWidth / W, window.innerHeight / H);
+  const dpr = window.devicePixelRatio || 1;
+  // Ukuran CSS diturunkan dari piksel fisik. Kalau tidak, ukuran pecahan membuat browser
+  // menggambar ulang seluruh kanvas dan hasilnya buram walau resolusinya sudah penuh.
+  const physicalW = Math.max(1, Math.floor(W * fit * dpr));
+  const physicalH = Math.max(1, Math.floor(H * fit * dpr));
+  const cssW = physicalW / dpr;
+  const cssH = physicalH / dpr;
   canvas.style.width = `${cssW}px`;
   canvas.style.height = `${cssH}px`;
-  canvas.style.left = `${(window.innerWidth - cssW) / 2}px`;
-  canvas.style.top = `${(window.innerHeight - cssH) / 2}px`;
-  canvas.width = Math.max(1, Math.round(cssW * dpr));
-  canvas.height = Math.max(1, Math.round(cssH * dpr));
+  canvas.style.left = `${Math.round(((window.innerWidth - cssW) / 2) * dpr) / dpr}px`;
+  canvas.style.top = `${Math.round(((window.innerHeight - cssH) / 2) * dpr) / dpr}px`;
+  canvas.width = Math.max(1, Math.round(physicalW * qualityFactor));
+  canvas.height = Math.max(1, Math.round(physicalH * qualityFactor));
   renderScale = canvas.width / W;
-  labelScale = clamp(renderScale, 1, 1.25);
+  renderScaleY = canvas.height / H;
+  labelScale = clamp(renderScale, 1, 1.5);
+  resizeUiLayers();
+}
+
+// Resolusi penuh lebih berat di HP. Kalau HP tidak sanggup, kualitas turun bertahap dan tidak naik lagi.
+function adaptQuality() {
+  // Di OBS FPS mengikuti pengaturan OBS, jadi 30 FPS di sana bukan tanda kewalahan.
+  if (document.hidden || window.obsstudio || renderScale <= MIN_RENDER_SCALE) {
+    lowFpsSeconds = 0;
+    return;
+  }
+  lowFpsSeconds = fps < LOW_FPS ? lowFpsSeconds + 1 : 0;
+  if (lowFpsSeconds < LOW_FPS_SECONDS) return;
+  lowFpsSeconds = 0;
+  const physicalScale = renderScale / qualityFactor;
+  qualityFactor = Math.max(qualityFactor * 0.85, MIN_RENDER_SCALE / physicalScale);
+  resize();
 }
 
 function layoutBases() {
@@ -1021,16 +1078,19 @@ function currentTip() {
 // Baris kubu digambar selebar teksnya, karena panjang nama tiap kubu berbeda.
 function drawTeamRow(c, row, y) {
   const labels = row.map((team) => `${team.no} ${shortName(team)}`);
-  const gap = 40;
-  const total = labels.reduce((sum, text) => sum + c.measureText(text).width, 0) + gap * (row.length - 1);
-  let x = (W - total) / 2;
-  c.textAlign = 'left';
+  const pad = 10;
+  const gap = 14;
+  const widths = labels.map((text) => c.measureText(text).width + pad * 2);
+  let x = (W - widths.reduce((sum, width) => sum + width, 0) - gap * (row.length - 1)) / 2;
+  c.textAlign = 'center';
   row.forEach((team, index) => {
     c.fillStyle = team.color;
-    c.fillText(labels[index], x, y);
-    x += c.measureText(labels[index]).width + gap;
+    roundedRect(c, x, y - 16, widths[index], 32, 7);
+    c.fill();
+    c.fillStyle = '#ffffff';
+    outlinedText(c, labels[index], x + widths[index] / 2, y + 1, 3);
+    x += widths[index] + gap;
   });
-  c.textAlign = 'center';
 }
 
 function renderBanner(now) {
@@ -1068,7 +1128,7 @@ function renderBanner(now) {
     c.fillStyle = '#ffffff';
     c.font = `800 36px ${FONT}`;
     c.fillText('Type 1-7 or your Country to spawn!', W / 2, mainH * 0.18);
-    c.font = `800 32px ${FONT}`;
+    c.font = `800 26px ${FONT}`;
     drawTeamRow(c, teams.slice(0, 4), mainH * 0.53);
     drawTeamRow(c, teams.slice(4), mainH * 0.85);
   }
@@ -1077,7 +1137,7 @@ function renderBanner(now) {
   c.fillRect(0, mainH + 2, W, BANNER_TIP_H - 2);
   c.fillStyle = '#ffd25a';
   fitFont(c, tipText, W - 40, 28, 700, 20);
-  c.fillText(tipText, W / 2, mainH + 2 + (BANNER_TIP_H - 2) / 2);
+  outlinedText(c, tipText, W / 2, mainH + 2 + (BANNER_TIP_H - 2) / 2, 3);
 }
 
 // ======================================================================
@@ -1903,16 +1963,16 @@ function renderHud(now) {
   c.fillStyle = hot ? '#ff5a4d' : '#ffffff';
   c.font = `800 44px ${FONT}`;
   const timerText = formatTime(phaseLeft);
-  c.fillText(timerText, 20, rowTimer / 2);
+  outlinedText(c, timerText, 20, rowTimer / 2);
   const timerWidth = c.measureText(timerText).width;
   c.font = `700 26px ${FONT}`;
   const phaseLabel = phase === 'OVERTIME' ? `OVERTIME (${cfg.gift.overtimeMultiplier}X GIFT BOOST!)` : PHASE_LABEL[phase] || '';
-  c.fillText(phaseLabel, 36 + timerWidth, rowTimer / 2);
+  outlinedText(c, phaseLabel, 36 + timerWidth, rowTimer / 2, 3);
 
   c.textAlign = 'right';
-  c.fillStyle = '#c4c9de';
-  c.font = `600 22px ${FONT}`;
-  c.fillText(`Round ${round} • ${viewerCount} viewers`, W - 52, rowTimer / 2);
+  c.fillStyle = '#e4e7f5';
+  c.font = `700 22px ${FONT}`;
+  outlinedText(c, `Round ${round} • ${viewerCount} viewers`, W - 52, rowTimer / 2, 3);
   c.beginPath();
   c.arc(W - 28, rowTimer / 2, 11, 0, TAU);
   c.fillStyle = status.connected ? '#34c759' : '#ff3b30';
@@ -1943,14 +2003,14 @@ function renderHud(now) {
     c.strokeText(team.label, x + 25, y + rowWin / 2);
     c.fillText(team.label, x + 25, y + rowWin / 2);
     c.textAlign = 'left';
-    c.font = `700 22px ${FONT}`;
     const name = shortName(team);
-    c.fillText(name, x + 56, y + rowWin / 2);
+    fitFont(c, name, 116, 22, 700, 16); // font tiap perangkat berbeda lebar, dan badge butuh sisa ruang
+    outlinedText(c, name, x + 56, y + rowWin / 2, 3);
     const winsX = x + 64 + c.measureText(name).width;
     c.fillStyle = '#ffd25a';
     c.font = `800 28px ${FONT}`;
     const wins = session ? String(session[team.code] || 0) : '0';
-    c.fillText(wins, winsX, y + rowWin / 2);
+    outlinedText(c, wins, winsX, y + rowWin / 2);
     let cursor = winsX + 4 + c.measureText(wins).width;
     if (streak && streak.team === team.code && streak.count >= 3) {
       c.drawImage(crownSprite, cursor, y + 5, 28, 20);
@@ -1961,7 +2021,7 @@ function renderHud(now) {
       c.font = `700 20px ${FONT}`;
       const badge = `Underdog x${underdog[index].toFixed(1)}`;
       const fits = c.measureText(badge).width + 20 <= cellWidth - (cursor - x);
-      c.fillText(fits ? badge : `x${underdog[index].toFixed(1)}`, cursor, y + rowWin / 2);
+      outlinedText(c, fits ? badge : `x${underdog[index].toFixed(1)}`, cursor, y + rowWin / 2, 3);
     }
   });
 
@@ -1970,14 +2030,19 @@ function renderHud(now) {
   const slot = W / TEAM_COUNT;
   teams.forEach((team, index) => {
     const x = index * slot;
-    const percent = Math.round(territoryShare(index) * 100);
-    c.textAlign = 'left';
+    const percent = `${Math.round(territoryShare(index) * 100)}%`;
+    const centerY = percentY + rowPercent / 2;
+    // Angka putih di samping chip warna: video TikTok mengaburkan teks merah dan biru di atas latar gelap.
+    c.fillStyle = team.color;
+    roundedRect(c, x + 3, centerY - 15, 38, 30, 6);
+    c.fill();
+    c.textAlign = 'center';
     c.fillStyle = '#ffffff';
     c.font = `800 18px ${FONT}`;
-    c.fillText(team.label, x + 4, percentY + rowPercent / 2);
-    c.fillStyle = team.color;
-    c.font = `800 40px ${FONT}`;
-    c.fillText(`${percent}%`, x + 30, percentY + rowPercent / 2);
+    outlinedText(c, team.label, x + 22, centerY, 3);
+    c.textAlign = 'left';
+    fitFont(c, percent, slot - 48, 40, 800, 28);
+    outlinedText(c, percent, x + 45, centerY);
   });
 
   // Bar wilayah 7 warna + Bar Semangat tipis di bawahnya
@@ -2305,9 +2370,15 @@ function drawEffects(now) {
   }
 }
 
+function drawOverlay(now) {
+  if (now < shakeUntil) ctx.drawImage(overlayCanvas, 0, arenaTop, W, arenaH); // ikut guncangan layar
+  else blitLayer(overlayCanvas, arenaTop);
+}
+
 function render(now) {
-  ctx.setTransform(renderScale, 0, 0, renderScale, 0, 0);
+  ctx.setTransform(renderScale, 0, 0, renderScaleY, 0, 0);
   ctx.imageSmoothingEnabled = true;
+  ctx.imageSmoothingQuality = 'high';
   ctx.drawImage(bgCanvas, 0, 0, W, H);
 
   // Dekorasi bawah: Prasasti Sultan berjalan pelan
@@ -2321,7 +2392,7 @@ function render(now) {
   }
 
   if (now >= nextHudAt) renderHud(now);
-  ctx.drawImage(hudCanvas, 0, hudTop, W, hudH);
+  blitLayer(hudCanvas, hudTop);
 
   // Arena
   ctx.save();
@@ -2341,13 +2412,13 @@ function render(now) {
   ctx.imageSmoothingEnabled = true;
 
   ensureOverlay();
-  if (phase === 'PREP' && overlayKind === 'klasemen') ctx.drawImage(overlayCanvas, 0, arenaTop, W, arenaH);
+  if (phase === 'PREP' && overlayKind === 'klasemen') drawOverlay(now);
 
   if (role === 'host') drawLiveSoldiers(now);
   else drawViewSoldiers();
 
   // Kartu Cara Main di atas prajurit supaya tetap terbaca saat banyak yang bergabung.
-  if (phase === 'PREP' && overlayKind === 'howto') ctx.drawImage(overlayCanvas, 0, arenaTop, W, arenaH);
+  if (phase === 'PREP' && overlayKind === 'howto') drawOverlay(now);
 
   // Markas digambar di atas prajurit supaya label dan namanya selalu terbaca.
   const streak = scoreboard ? scoreboard.streak : null;
@@ -2366,7 +2437,7 @@ function render(now) {
   }
   drawParticles();
   drawEffects(now);
-  if (phase === 'CROWN') ctx.drawImage(overlayCanvas, 0, arenaTop, W, arenaH);
+  if (phase === 'CROWN') drawOverlay(now);
   if (now < flashUntil) {
     ctx.fillStyle = 'rgba(255,255,255,0.45)';
     ctx.fillRect(0, arenaTop, W, arenaH);
@@ -2374,7 +2445,7 @@ function render(now) {
   ctx.restore();
 
   renderBanner(now);
-  ctx.drawImage(bannerCanvas, 0, bannerTop, W, bannerH);
+  blitLayer(bannerCanvas, bannerTop);
 
   // Tepi layar berdenyut merah saat Overtime dan Sudden Death
   if (phase === 'OVERTIME' || phase === 'SUDDEN') {
@@ -2474,6 +2545,7 @@ function frame(timestamp) {
     fps = (fpsFrames * 1000) / (timestamp - fpsWindowStart);
     fpsFrames = 0;
     fpsWindowStart = timestamp;
+    adaptQuality();
     frameCostMs = frameCostCount > 0 ? frameCostSum / frameCostCount : 0;
     frameCostSum = 0;
     frameCostCount = 0;
@@ -2513,6 +2585,11 @@ function updateDebug(now) {
     giftsWaiting: deferredGifts.length,
     overlayKind,
     tipText,
+    renderScale,
+    renderScaleY,
+    qualityFactor,
+    canvasPx: [canvas.width, canvas.height],
+    cssPx: [canvas.getBoundingClientRect().width, canvas.getBoundingClientRect().height],
     shield: teams.map((_, team) => shieldUntil[team] > now),
     titans: soldiers.filter((s) => s.active && s.eliteUntil > now).length,
     bonusAlive: soldiers.filter((s) => s.active && s.bonusUntil > 0).length,
@@ -2693,6 +2770,13 @@ function beginGame() {
   requestAnimationFrame(frame);
 }
 
+// Untuk Browser Source OBS: tidak ada orang yang bisa menekan START saat OBS dibuka ulang.
+function autoStart() {
+  Audio.init({ muted: false });
+  keepScreenOn();
+  beginGame();
+}
+
 function setupStartScreen() {
   const screenEl = document.getElementById('start');
   const soundBtn = document.getElementById('soundBtn');
@@ -2743,6 +2827,7 @@ async function boot() {
   layoutBases();
 
   if (role === 'view') beginGame();
+  else if (params.get('autostart') === '1') autoStart();
   else setupStartScreen();
 }
 
