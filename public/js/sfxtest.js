@@ -92,7 +92,7 @@ export function runSfxTest(config, wilayah) {
 
   const musicBody = section('Musik');
   const levelButtons = [];
-  const levelLabels = ['0 Persiapan', '1 Pertempuran', '2 Overtime', '3 Sudden Death', 'Stop'];
+  const levelLabels = ['0 Preparation', '1 Battle', '2 Overtime', '3 Sudden Death', 'Stop'];
   [0, 1, 2, 3, -1].forEach((level, index) => {
     const button = el('button', levelLabels[index]);
     button.dataset.music = String(level);

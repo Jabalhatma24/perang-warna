@@ -8,7 +8,7 @@ TIERS = {"MICRO": 1, "MID": 10, "SULTAN": 100, "MEGA": 1000}
 def send(tracker, count, end=False, group=1, now=0.0, unit=1, streakable=True, user="u1"):
     return tracker.process(
         user_id=user, gift_id=5655, gift_name="Mawar", unit_coins=unit, group_id=group,
-        repeat_count=count, repeat_end=end, streakable=streakable, team="JAWA", now=now,
+        repeat_count=count, repeat_end=end, streakable=streakable, team="ASIA", now=now,
     )
 
 

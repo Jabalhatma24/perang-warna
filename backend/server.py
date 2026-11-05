@@ -383,19 +383,43 @@ def resolve_host_key(cli_key: str | None, path: Path = HOST_KEY_FILE) -> str:
     return key
 
 
+def wins_path(simulate: bool) -> Path:
+    """Simulasi terpisah dari data asli. Klasemen benua juga terpisah dari wins.json lama milik
+    versi Nusantara, karena Storage membuang kode kubu yang tidak dikenal saat menyimpan."""
+    return DATA_DIR / ("wins.continental.sim.json" if simulate else "wins.continental.json")
+
+
+def pc_window_command(port: int, key: str) -> str:
+    """Jendela Chrome tanpa bilah alamat untuk ditangkap TikTok LIVE Studio.
+
+    Profil terpisah memastikan flag berlaku walau Chrome biasa sedang terbuka. Tanpa flag ini
+    Chrome menghentikan animasi saat jendelanya tertutup jendela lain, dan ronde ikut berhenti.
+    """
+    profile = ROOT / ".chrome-studio"
+    flags = (
+        f'--app="{operator_url(f"http://localhost:{port}", key)}" --window-size=608,1080 '
+        f'--user-data-dir="{profile}" --disable-features=CalculateNativeWinOcclusion '
+        "--disable-backgrounding-occluded-windows --disable-renderer-backgrounding "
+        "--disable-background-timer-throttling"
+    )
+    return f'start "" chrome {flags}' if os.name == "nt" else f"google-chrome {flags}"
+
+
 def operator_url(base: str, key: str) -> str:
     # Kunci diletakkan di fragmen (#) karena bagian ini tidak ikut terkirim dalam permintaan HTTP.
     return f"{base}/#key={quote(key, safe='')}"
 
 
-def print_access_info(base: str, key: str) -> None:
+def print_access_info(base: str, key: str, port: int) -> None:
     url = operator_url(base, key)
     print("\nTautan OPERATOR, RAHASIA (QR di bawah berisi tautan ini):")
     print(f"  {url}")
     print("Tautan penonton, hanya menonton:")
     print(f"  {base}/")
     print(f"Uji suara: {base}/?sfxtest=1")
-    print("Buka tautan operator dan tekan MULAI SEBELUM siaran layar dimulai. Jangan siarkan terminal ini.\n")
+    print("Jendela untuk TikTok LIVE Studio di PC ini, RAHASIA (jalankan di terminal lain):")
+    print(f"  {pc_window_command(port, key)}")
+    print("Buka tautan operator dan tekan START SEBELUM siaran dimulai. Jangan siarkan terminal ini.\n")
     try:
         import qrcode
 
@@ -409,7 +433,7 @@ def print_access_info(base: str, key: str) -> None:
 
 
 def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
-    parser = argparse.ArgumentParser(description="Perang Warna 7 Wilayah Nusantara")
+    parser = argparse.ArgumentParser(description="Continental War: Battle of Nations")
     source = parser.add_mutually_exclusive_group()
     source.add_argument("--simulate", action="store_true", help="jalankan bot penonton")
     source.add_argument("--username", help="akun TikTok yang sedang live, misal @akunku")
@@ -439,9 +463,7 @@ async def serve(args: argparse.Namespace) -> None:
     host_key = resolve_host_key(args.key)
     wilayah = Wilayah.load(DATA_DIR / "wilayah.json")
     moderator = Moderator.load(DATA_DIR / "blocklist.txt")
-    # Simulasi memakai berkas terpisah supaya tidak mengotori Klasemen Abadi asli.
-    wins_file = DATA_DIR / ("wins.sim.json" if args.simulate else "wins.json")
-    storage = Storage(wins_file, wilayah.codes, keep_session=args.keep_session, reset_all=args.reset_all)
+    storage = Storage(wins_path(args.simulate), wilayah.codes, keep_session=args.keep_session, reset_all=args.reset_all)
 
     hub = Hub(config, wilayah, moderator, storage, simulate_mode=args.simulate, rate=args.rate,
               has_tiktok=bool(args.username), host_key=host_key)
@@ -456,7 +478,7 @@ async def serve(args: argparse.Namespace) -> None:
         raise SystemExit(f"Port {port} tidak bisa dipakai: {error}") from error
 
     base = (args.public_url or f"http://{lan_ip()}:{port}").rstrip("/")
-    print_access_info(base, host_key)
+    print_access_info(base, host_key, port)
     tasks = [asyncio.create_task(hub.like_loop()), asyncio.create_task(hub.stats_loop())]
     if args.simulate:
         hub.set_sim(True)

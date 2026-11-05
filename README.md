@@ -1,8 +1,10 @@
-# Perang Warna 7 Wilayah Nusantara
+# Continental War: Battle of Nations
 
-Game interaktif untuk TikTok Live. Penonton memilih kubu lewat komentar, lalu prajurit mereka mengecat arena. Wilayah terluas di akhir ronde mendapat 1 Win.
+Game interaktif untuk TikTok LIVE. Penonton memilih 1 dari 7 benua lewat komentar, lalu prajurit mereka mengecat arena. Warna terluas di akhir ronde mendapat 1 Win.
 
-Satu proses Python melayani game dan WebSocket di port 8080. Game berjalan di browser HP tanpa build step, tanpa internet untuk aset, dan tanpa berkas audio.
+Satu proses Python melayani game dan WebSocket di port 8080. Game berjalan di browser HP atau PC tanpa build step, tanpa internet untuk aset, dan tanpa berkas audio.
+
+Versi Perang Warna Nusantara ada di riwayat git, dan datanya tetap tersimpan di `data/wins.json`.
 
 ## Menjalankan
 
@@ -26,11 +28,11 @@ Skrip membuat virtualenv, memasang dependensi, menjalankan `pytest`, lalu menyal
 
 | Flag | Fungsi |
 | --- | --- |
-| `--simulate` | Bot penonton. Hasilnya disimpan terpisah di `data/wins.sim.json` |
+| `--simulate` | Bot penonton. Hasilnya disimpan terpisah di `data/wins.continental.sim.json` |
 | `--rate low\|normal\|high` | Kepadatan bot |
 | `--username @akun` | Terhubung ke live TikTok, mencoba ulang otomatis jika live belum mulai |
 | `--keep-session` | Melanjutkan Win sesi setelah crash |
-| `--reset-all` | Menghapus Klasemen Abadi dan Hall of Fame |
+| `--reset-all` | Menghapus All-Time Ranking dan Hall of Fame benua |
 | `--port N` | Mengganti port |
 
 ## Menghubungkan HP
@@ -38,7 +40,7 @@ Skrip membuat virtualenv, memasang dependensi, menjalankan `pytest`, lalu menyal
 1. Sambungkan HP dan laptop ke Wi-Fi yang sama.
 2. Pindai QR di terminal, atau buka **tautan operator** yang tercetak di sana. Tautan ini berisi kunci host, jadi jangan dibagikan. Cukup sekali per perangkat, karena kuncinya tersimpan di HP dan langsung dihapus dari alamat.
 3. Di Windows, izinkan Python di Windows Firewall untuk jaringan **Private**.
-4. Tekan **MULAI** sebelum siaran layar dimulai. Satu ketukan itu membuka fullscreen, mengunci potret, dan menyalakan audio.
+4. Tekan **START** sebelum siaran layar dimulai. Satu ketukan itu membuka fullscreen, mengunci potret, dan menyalakan audio.
 
 Pakai **Chrome di Android**. Safari di iPhone tidak mendukung fullscreen untuk halaman biasa.
 
@@ -54,7 +56,7 @@ Pakai **Chrome di Android**. Safari di iPhone tidak mendukung fullscreen untuk h
 | `/?debug=1` | Menampilkan FPS, prajurit, partikel, dan antrean |
 | `/?sfxtest=1` | Uji semua suara, intensitas musik, dan spam gift |
 
-**Hanya satu host yang aktif.** Perangkat kedua yang menyimpan kunci akan mengambil alih peran host saat MULAI ditekan, dan layar lama berubah menjadi penonton. Perangkat tanpa kunci tidak bisa mengambil alih.
+**Hanya satu host yang aktif.** Perangkat kedua yang menyimpan kunci akan mengambil alih peran host saat START ditekan, dan layar lama berubah menjadi penonton. Perangkat tanpa kunci tidak bisa mengambil alih.
 
 ## Keamanan
 
@@ -66,7 +68,7 @@ Server selalu berjalan dengan kunci host, dan kunci diperiksa di server. Tanpa k
 
 **Batas penonton:** `server.maxViewers` di `config.json`, bawaan 10. Host tetap bisa masuk saat kursi penuh. Isi `0` jika tidak butuh penonton, karena setiap ada penonton HP operator ikut mengirim snapshot.
 
-**Bilah alamat di siaran:** urutannya buka game, tekan MULAI, baru mulai siaran layar. Jika fullscreen tertutup, bilah alamat muncul lagi sampai layar diketuk, dan browser tidak mengizinkan halaman menutupnya sendiri.
+**Bilah alamat di siaran:** urutannya buka game, tekan START, baru mulai siaran layar. Jika fullscreen tertutup, bilah alamat muncul lagi sampai layar diketuk, dan browser tidak mengizinkan halaman menutupnya sendiri.
 
 **Pasang sebagai aplikasi (PWA):** Chrome hanya mengizinkan lewat HTTPS. Di `http://IP:port` ia menolak dengan `not-from-secure-origin`, jadi PWA butuh domain dan HTTPS.
 
@@ -107,48 +109,75 @@ Tutup port 8080 di firewall VPS, lalu pasang lewat Chrome di HP: buka tautan ope
 | Tombol `M` (laptop) | Bisukan |
 | Tombol `T` (laptop) | Mode Bicara, menurunkan semua audio -12 dB |
 
-Ronde yang tercampur bot darurat tetap menambah Win sesi, tetapi tidak masuk Klasemen Abadi dan Hall of Fame.
+Ronde yang tercampur bot darurat tetap menambah Win sesi, tetapi tidak masuk All-Time Ranking dan Hall of Fame.
 
 ## Aturan untuk penonton
 
 | Komentar | Efek |
 | --- | --- |
-| `1`-`7`, nama pulau, provinsi, atau kota | Gabung kubu |
-| `gas` | RALLY: memanggil 3 prajurit tambahan (jeda 10 detik) |
-| Komentar lain | DASH: prajurit melesat sebentar (jeda 3 detik). Prajurit yang kalah muncul lagi |
+| `1`-`7`, nama benua, negara, atau emoji bendera | Gabung benua |
+| `gas` atau `rush` | Menyerbu: prajurit melesat dan memanggil 3 prajurit tambahan (jeda 10 detik) |
+| Komentar lain | Prajurit melesat sebentar (jeda 3 detik). Prajurit yang kalah muncul lagi |
 
-Pindah kubu hanya bisa saat fase Persiapan. Kubu: 1 Jawa, 2 Sulawesi, 3 Kalimantan, 4 Sumatera, 5 Bali & Nusa Tenggara, 6 Maluku, 7 Papua.
+Pindah benua hanya bisa saat PREPARATION. Benua: 1 ASIA, 2 EUROPE, 3 N.AMERICA, 4 S.AMERICA, 5 MID.EAST, 6 AFRICA, 7 OCEANIA.
 
 | Gift | Koin per unit | Efek |
 | --- | --- | --- |
-| MICRO | 1-9 | Prajurit bonus, cipratan cat, COMBO |
-| MID | 10-99 | Prajurit Elite 15 detik |
-| SULTAN | 100-999 | Meteor di wilayah kubu terdepan. Jika penyawer dari kubu terdepan, Meteor jatuh di peringkat kedua |
-| MEGA | 1000+ | Takeover: gelombang warna, kubu 2x kuat 20 detik, nama masuk Prasasti Sultan |
+| MICRO (Rose) | 1-9 | +10 prajurit bonus per koin (maksimal 30 per event), cipratan cat, Combo. Prajurit bonus lebih lemah, tanpa Underdog, hilang setelah 30 detik |
+| MID (Donut) | 10-99 | Giant Titan Warrior 15 detik: besar, kuat, dan mengecat lebih lebar |
+| SULTAN | 100-999 | Meteor di wilayah benua terdepan. Jika penyawer dari benua terdepan, Meteor jatuh di peringkat kedua |
+| MEGA | 1000+ | Takeover: gelombang warna, benua 2x kuat 20 detik, Shield 10 detik, nama masuk Sultan Wall |
+
+Selama Shield aktif, prajurit benua itu tidak bisa mati oleh tabrakan atau Meteor. Wilayahnya tetap bisa dicat lawan.
 
 Gift yang datang di luar pertempuran ditahan dan efeknya aktif saat perang berikutnya mulai.
 
+## Kamus negara
+
+`data/wilayah.json` berisi 7 benua dan 165 negara dengan alias Inggris, Indonesia, sebagian aksara lokal, dan kode ISO.
+
+- **Kode 2 huruf hanya sah jika berdiri sendiri.** `it` bergabung ke Italy, tetapi `i love it` tidak.
+- **Kode yang merupakan kata sehari-hari tidak dipakai:** `no`, `me`, `so`, `to`, `is`, `am`, `at`, `be`, `do`, `si`, `la`, `pa`, `by`, `ai`. Benderanya tetap berlaku.
+- **Label di layar lebih utama daripada kode negara.** `SA` berarti S.AMERICA dan `AS` berarti ASIA. Arab Saudi memakai `ksa` atau `saudi`.
+- **Kata di daftar `ambiguous` hanya sah jika berdiri sendiri,** misalnya `cuba`, `chad`, `turkey`, dan `french`.
+- **Emoji bendera selalu sah,** kecuali komentar menyebut dua benua berbeda.
+
 ## Siaran tanpa suara host
 
-Game menjelaskan dirinya sendiri, jadi host tidak perlu bicara:
+Game menjelaskan dirinya sendiri:
 
-- **Kartu Cara Main** tampil selama 12 detik pertama Persiapan, lalu berganti ke Klasemen Abadi. Selama Klasemen masih kosong, kartu ini tampil sepanjang Persiapan.
-- **Papan nama markas** menampilkan angka dan nama lengkap kubu, misalnya `1 Jawa`.
-- **Papan Win** menampilkan nama di samping singkatan, misalnya `JW Jawa 0`.
-- **Baris tips** di bawah banner selalu tampil dan berganti tiap 5 detik, termasuk saat banner ramai oleh gift.
+- **Kartu How to Play** tampil selama 12 detik pertama PREPARATION, lalu berganti ke All-Time Ranking. Selama ranking masih kosong, kartu ini tampil sepanjang PREPARATION.
+- **Papan nama markas** menampilkan angka dan nama benua, misalnya `1 ASIA`.
+- **Baris tips** di bawah banner selalu tampil dan berganti tiap 5 detik, sebagian berbahasa Indonesia.
 
-Durasinya diatur lewat `help.prepHowToSeconds` dan `help.tipSeconds` di `config.json`. Nama pendek kubu ada di kolom `short` pada `data/wilayah.json`.
+Durasinya diatur lewat `help.prepHowToSeconds` dan `help.tipSeconds` di `config.json`.
 
 Teks siap tempel untuk TikTok:
 
-- **Judul live:** `Perang Warna! Ketik 1-7`
-- **Komentar yang disematkan:** `Ketik angka kubumu: 1 Jawa 2 Sulawesi 3 Kalimantan 4 Sumatera 5 Bali-Nusra 6 Maluku 7 Papua. Warna terluas menang!`
+- **Judul live:** `Continental War: Type 1-7!`
+- **Komentar yang disematkan:** `Type your number: 1 Asia 2 Europe 3 N.America 4 S.America 5 Mid.East 6 Africa 7 Oceania. Biggest color wins!`
+
+## TikTok LIVE Studio di PC
+
+Bagian ini belum diuji di Windows atau di TikTok LIVE Studio sungguhan, jadi lakukan gladi bersih sebelum siaran.
+
+1. Jalankan `run.bat --username @akunku` (Windows). Terminal mencetak perintah **Jendela untuk TikTok LIVE Studio**.
+2. Salin perintah itu ke terminal kedua. Perintah ini membuka jendela Chrome 9:16 tanpa bilah alamat. Isinya memuat kunci host, jadi jangan disiarkan.
+3. Tekan **START** di jendela itu. Di PC game tidak masuk fullscreen, supaya tetap 9:16.
+4. Di Studio, pilih tata letak **potret** dengan kanvas 1080x1920.
+5. **Add source > Window Capture**, lalu pilih jendela Continental War dan sesuaikan ukurannya mengisi kanvas. Jika hasilnya hitam, pakai Screen Capture lalu potong areanya.
+6. Aktifkan suara desktop atau aplikasi di Studio. Cek lewat akun kedua bahwa suara game masuk.
+7. Baru tekan **Go LIVE**.
+
+Jangan meminimalkan jendela game. Flag di perintah tadi menjaga game tetap berjalan saat jendelanya tertutup jendela lain, tetapi tidak saat diminimalkan.
+
+**OBS sebagai alternatif:** tambahkan Browser Source ke `http://localhost:8080/#key=<kunci>` dengan ukuran 1080x1920, centang kontrol audio lewat OBS, lalu klik kanan > Interact untuk menekan START.
 
 ## Mengubah data
 
 - `config.json`: durasi fase, ambang tier, cooldown, keseimbangan, batas zona layar, audio. Muat ulang server setelah mengubahnya.
-- `data/wilayah.json`: kubu, provinsi, alias. Harus tetap 38 provinsi. Kata di daftar `ambiguous` hanya dihitung jika komentar hanya berisi kata itu.
-- `data/blocklist.txt`: kata terlarang untuk nickname, satu per baris.
+- `data/wilayah.json`: benua, negara, alias. Setiap alias hanya boleh dimiliki satu negara. Kata di daftar `ambiguous` hanya dihitung jika komentar hanya berisi kata itu.
+- `data/blocklist.txt`: kata terlarang untuk nickname, satu per baris. Awalan `=` memaksa cek kata utuh, untuk kata yang menjadi bagian nama wajar.
 
 Zona 0-10% dan 68-100% tertutup UI TikTok. Jika HP Anda berbeda, sesuaikan `layout` di `config.json`.
 

@@ -12,19 +12,19 @@ RATES = {
 }
 
 NAMES = [
-    "Budi", "Sari", "Agus", "Dewi", "Rina", "Yusuf", "Putu", "Made", "Ketut", "Nanda", "Fajar", "Lestari",
-    "Ucok", "Butet", "Daeng", "Cici", "Bayu", "Wayan", "Tiara", "Rizki", "Maya", "Andi", "Yohan", "Frans",
+    "Budi", "Sari", "Dewi", "Yuki", "Min", "Wei", "Jose", "Maria", "John", "Emma", "Liam", "Hans",
+    "Pierre", "Sofia", "Ahmed", "Fatima", "Omar", "Kofi", "Amara", "Zola", "Tane", "Mia", "Lucas", "Ana",
 ]
-RUDE_NAMES = ["anj1ng_77", "B4NGS4TT", "t0l0l_banget"]
+RUDE_NAMES = ["anj1ng_77", "fuck_y0u", "b1tch_99"]
 CHATTER = [
-    "wkwkwk", "mantap", "ayo ayo", "seru banget", "halo kak", "aku 2 kali", "jawa vs papua",
-    "serang!", "malang banget nasibku", "medan perang nih", "semangat",
+    "wkwkwk", "lol", "nice", "let's go", "hello everyone", "i love it", "in my country", "it is us",
+    "japan vs usa", "so cool", "no way", "seru banget", "aku 2 kali", "cuba lagi", "french fries",
 ]
-RALLY = ["gas", "GASSS", "gas terus", "gaaas"]
-MICRO_GIFTS = [(5655, "Mawar", 1), (7934, "Heart Me", 1), (6064, "GG", 1), (5827, "Finger Heart", 5)]
-MID_GIFTS = [(5269, "TikTok", 10), (6104, "Topi", 30), (5879, "Donat", 30), (6427, "Parfum", 20)]
-SULTAN_GIFTS = [(5585, "Confetti", 100), (6369, "Singa Kecil", 299), (6148, "Kapal", 500)]
-MEGA_GIFTS = [(6064, "Paus", 1000), (6202, "Galaksi", 1000), (7312, "Singa", 29999)]
+RALLY = ["gas", "GASSS", "rush", "RUSH!!", "gas terus", "rush them"]
+MICRO_GIFTS = [(5655, "Rose", 1), (7934, "Heart Me", 1), (6064, "GG", 1), (5827, "Finger Heart", 5)]
+MID_GIFTS = [(5269, "TikTok", 10), (6104, "Hat", 30), (5879, "Donut", 30), (6427, "Perfume", 20)]
+SULTAN_GIFTS = [(5585, "Confetti", 100), (6369, "Lion Cub", 299), (6148, "Ship", 500)]
+MEGA_GIFTS = [(6064, "Whale", 1000), (6202, "Galaxy", 1000), (7312, "Lion", 29999)]
 STREAK_EVENTS_PER_SECOND = 5
 
 
@@ -46,11 +46,16 @@ class Simulator:
         self.bots = [self._make_bot(index) for index in range(self.settings["bots"])]
 
     def _collect_aliases(self) -> dict[str, list[str]]:
+        # Kode pendek dilewati: _join_text menambahkan huruf dan tanda baca, sedangkan kode hanya sah sendirian.
+        def usable(alias: str) -> bool:
+            return len(alias) > 2 and alias.lower() not in ambiguous
+
+        ambiguous = {" ".join(key) for key in self.wilayah.ambiguous}
         aliases: dict[str, list[str]] = {}
         for kubu in self.wilayah.kubu:
-            aliases[kubu["code"]] = [str(kubu["no"]), *kubu.get("aliases", [])]
-        for province in self.wilayah.provinces:
-            aliases[province["kubu"]].extend([province["name"], *province.get("aliases", [])])
+            aliases[kubu["code"]] = [str(kubu["no"]), *filter(usable, kubu.get("aliases", []))]
+        for country in self.wilayah.countries:
+            aliases[country["kubu"]].extend(filter(usable, [country["name"], *country.get("aliases", [])]))
         return aliases
 
     def _make_bot(self, index: int) -> dict:

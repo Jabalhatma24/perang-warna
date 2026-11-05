@@ -4,3 +4,6 @@ __pycache__/
 data/wins.json
 data/wins.sim.json
 data/host.key
+data/wins.continental.json
+data/wins.continental.sim.json
+.chrome-studio/

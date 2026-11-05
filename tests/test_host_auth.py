@@ -73,7 +73,7 @@ def test_correct_key_becomes_host(tmp_path, wilayah, moderator):
         ws = await real_host(client)
         await send(ws, "ROUND_RESULT", result("r1"))
         board = await read_until(ws, "SCOREBOARD")
-        assert board["data"]["session"]["JAWA"] == 1
+        assert board["data"]["session"]["ASIA"] == 1
 
     run(scenario, tmp_path, wilayah, moderator)
 
@@ -93,7 +93,7 @@ def test_stranger_cannot_disturb_live_host(tmp_path, wilayah, moderator):
         await asyncio.sleep(0.1)
 
         assert hub.active_host is host_record
-        assert hub.storage.state["session"]["JAWA"] == 0
+        assert hub.storage.state["session"]["ASIA"] == 0
         assert "palsu" not in hub.storage.state["roundIds"]
         assert not hub.sim_active
         assert json.loads(hub.last_snapshot)["data"]["phase"] == "BATTLE"
@@ -272,3 +272,13 @@ def test_pwa_manifest_is_valid_and_its_icons_exist():
     assert {"192x192", "512x512"} <= sizes
     for icon in manifest["icons"]:
         assert (ROOT / "public" / icon["src"]).stat().st_size > 0
+
+
+def test_pc_window_command_has_no_address_bar_and_keeps_rendering_when_covered():
+    command = server.pc_window_command(8080, "kunci+rahasia")
+    assert "--app=" in command and "localhost:8080/#key=kunci%2Brahasia" in command
+    assert "--window-size=608,1080" in command
+    assert "--user-data-dir=" in command
+    for flag in ("CalculateNativeWinOcclusion", "--disable-backgrounding-occluded-windows",
+                 "--disable-renderer-backgrounding", "--disable-background-timer-throttling"):
+        assert flag in command

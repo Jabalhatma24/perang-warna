@@ -46,6 +46,52 @@ aseng
 jawir
 inlander
 monyet
-negro
-nigger
+=negro
 pki
+
+# Global: Inggris
+fuck
+fuckyou
+fucker
+shit
+bitch
+asshole
+bastard
+cunt
+dick
+cock
+pussy
+whore
+slut
+faggot
+retard
+nigga
+=nigger
+rape
+nazi
+hitler
+kkk
+# Spanyol dan Portugis
+puta
+mierda
+pendejo
+cabron
+caralho
+porra
+# Prancis dan Jerman
+putain
+salope
+hurensohn
+scheisse
+# Tagalog, Hindi, Melayu, Arab (latin)
+putangina
+gago
+bhenchod
+madarchod
+chutiya
+pukimak
+sharmouta
+# Rusia
+блять
+сука
+хуй
