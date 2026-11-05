@@ -1,0 +1,58 @@
+{
+  "kubu": [
+    { "code": "JAWA", "name": "Jawa", "no": 1, "color": "#FF3B30", "label": "JW", "aliases": ["jawa"] },
+    { "code": "SULAWESI", "name": "Sulawesi", "no": 2, "color": "#007AFF", "label": "SL", "aliases": ["sulawesi"] },
+    { "code": "KALIMANTAN", "name": "Kalimantan", "no": 3, "color": "#34C759", "label": "KL", "aliases": ["kalimantan", "borneo"] },
+    { "code": "SUMATERA", "name": "Sumatera", "no": 4, "color": "#FFCC00", "label": "SM", "aliases": ["sumatera", "sumatra"] },
+    { "code": "BALI_NUSRA", "name": "Bali & Nusa Tenggara", "no": 5, "color": "#FF9500", "label": "BN", "aliases": ["nusra", "nusa tenggara"] },
+    { "code": "MALUKU", "name": "Maluku", "no": 6, "color": "#AF52DE", "label": "ML", "aliases": ["maluku"] },
+    { "code": "PAPUA", "name": "Papua", "no": 7, "color": "#30B0C7", "label": "PP", "aliases": ["papua"] }
+  ],
+  "ambiguous": ["malang", "solo", "medan", "padang", "palu", "sorong"],
+  "provinces": [
+    { "name": "DKI Jakarta", "kubu": "JAWA", "aliases": ["jakarta", "jkt", "dki"] },
+    { "name": "Jawa Barat", "kubu": "JAWA", "aliases": ["jabar", "bandung", "bogor", "bekasi", "depok"] },
+    { "name": "Banten", "kubu": "JAWA", "aliases": ["banten", "tangerang"] },
+    { "name": "Jawa Tengah", "kubu": "JAWA", "aliases": ["jateng", "semarang", "solo"] },
+    { "name": "DI Yogyakarta", "kubu": "JAWA", "aliases": ["jogja", "yogya", "yogyakarta", "diy"] },
+    { "name": "Jawa Timur", "kubu": "JAWA", "aliases": ["jatim", "surabaya", "malang", "madura"] },
+
+    { "name": "Sulawesi Utara", "kubu": "SULAWESI", "aliases": ["sulut", "manado"] },
+    { "name": "Gorontalo", "kubu": "SULAWESI", "aliases": ["gorontalo"] },
+    { "name": "Sulawesi Tengah", "kubu": "SULAWESI", "aliases": ["sulteng", "palu"] },
+    { "name": "Sulawesi Barat", "kubu": "SULAWESI", "aliases": ["sulbar", "mamuju"] },
+    { "name": "Sulawesi Selatan", "kubu": "SULAWESI", "aliases": ["sulsel", "makassar"] },
+    { "name": "Sulawesi Tenggara", "kubu": "SULAWESI", "aliases": ["sultra", "kendari"] },
+
+    { "name": "Kalimantan Barat", "kubu": "KALIMANTAN", "aliases": ["kalbar", "pontianak"] },
+    { "name": "Kalimantan Tengah", "kubu": "KALIMANTAN", "aliases": ["kalteng", "palangkaraya"] },
+    { "name": "Kalimantan Selatan", "kubu": "KALIMANTAN", "aliases": ["kalsel", "banjarmasin"] },
+    { "name": "Kalimantan Timur", "kubu": "KALIMANTAN", "aliases": ["kaltim", "samarinda", "balikpapan", "ikn"] },
+    { "name": "Kalimantan Utara", "kubu": "KALIMANTAN", "aliases": ["kaltara", "tarakan"] },
+
+    { "name": "Aceh", "kubu": "SUMATERA", "aliases": ["aceh"] },
+    { "name": "Sumatera Utara", "kubu": "SUMATERA", "aliases": ["sumut", "medan"] },
+    { "name": "Sumatera Barat", "kubu": "SUMATERA", "aliases": ["sumbar", "padang"] },
+    { "name": "Riau", "kubu": "SUMATERA", "aliases": ["riau", "pekanbaru"] },
+    { "name": "Kepulauan Riau", "kubu": "SUMATERA", "aliases": ["kepri", "batam"] },
+    { "name": "Jambi", "kubu": "SUMATERA", "aliases": ["jambi"] },
+    { "name": "Bengkulu", "kubu": "SUMATERA", "aliases": ["bengkulu"] },
+    { "name": "Sumatera Selatan", "kubu": "SUMATERA", "aliases": ["sumsel", "palembang"] },
+    { "name": "Kepulauan Bangka Belitung", "kubu": "SUMATERA", "aliases": ["babel", "bangka", "belitung"] },
+    { "name": "Lampung", "kubu": "SUMATERA", "aliases": ["lampung"] },
+
+    { "name": "Bali", "kubu": "BALI_NUSRA", "aliases": ["bali", "denpasar"] },
+    { "name": "Nusa Tenggara Barat", "kubu": "BALI_NUSRA", "aliases": ["ntb", "lombok", "mataram", "sumbawa"] },
+    { "name": "Nusa Tenggara Timur", "kubu": "BALI_NUSRA", "aliases": ["ntt", "kupang", "flores", "sumba", "labuan bajo"] },
+
+    { "name": "Maluku", "kubu": "MALUKU", "aliases": ["ambon"] },
+    { "name": "Maluku Utara", "kubu": "MALUKU", "aliases": ["malut", "maluku utara", "ternate", "halmahera"] },
+
+    { "name": "Papua", "kubu": "PAPUA", "aliases": ["jayapura"] },
+    { "name": "Papua Barat", "kubu": "PAPUA", "aliases": ["pabar", "papua barat", "manokwari"] },
+    { "name": "Papua Barat Daya", "kubu": "PAPUA", "aliases": ["pbd", "papua barat daya", "sorong"] },
+    { "name": "Papua Tengah", "kubu": "PAPUA", "aliases": ["papua tengah", "nabire", "timika"] },
+    { "name": "Papua Pegunungan", "kubu": "PAPUA", "aliases": ["papua pegunungan", "wamena"] },
+    { "name": "Papua Selatan", "kubu": "PAPUA", "aliases": ["papua selatan", "merauke"] }
+  ]
+}

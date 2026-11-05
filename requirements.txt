@@ -1,0 +1,4 @@
+TikTokLive==7.0.1
+aiohttp==3.14.5
+qrcode==8.2
+pytest==9.2.0

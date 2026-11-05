@@ -1,0 +1,51 @@
+# Satu kata atau frasa per baris. Baris yang diawali # diabaikan.
+# Kata 5 huruf atau lebih dicek sebagai potongan nama; kata lebih pendek dicek sebagai kata utuh.
+# Kata kasar umum
+anjing
+anjir
+anjrit
+bangsat
+bajingan
+keparat
+kampret
+kontol
+memek
+ngentot
+entot
+pepek
+peler
+pantek
+puki
+pukimak
+jancok
+jancuk
+cok
+asu
+babi
+tai
+taik
+goblok
+goblog
+tolol
+bego
+idiot
+kunyuk
+sialan
+brengsek
+lonte
+pelacur
+perek
+sundal
+banci
+bencong
+# Ejekan bernada SARA dan politik identitas
+kafir
+kadrun
+cebong
+aseng
+jawir
+inlander
+monyet
+negro
+nigger
+pki

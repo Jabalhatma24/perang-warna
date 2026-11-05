@@ -1,0 +1,59 @@
+{
+  "server": { "port": 8080 },
+  "phases": { "prep": 20, "battle": 180, "overtime": 30, "suddenDeath": 20, "crown": 20 },
+  "gift": {
+    "tiers": { "MICRO": 1, "MID": 10, "SULTAN": 100, "MEGA": 1000 },
+    "streakIdleSeconds": 60,
+    "maxEventTerritory": 0.15,
+    "overtimeMultiplier": 2,
+    "revengeMultiplier": 1.5,
+    "revengeSeconds": 15,
+    "eliteSeconds": 15,
+    "takeoverSeconds": 20,
+    "takeoverStrength": 2,
+    "microMaxPerEvent": 12,
+    "deferredMax": 50
+  },
+  "cooldown": { "dash": 3, "rally": 10 },
+  "rage": { "threshold": 0.07, "speed": 1.5, "seconds": 20, "cooldownSeconds": 30, "graceSeconds": 30 },
+  "suddenDeath": { "threshold": 0.01 },
+  "underdog": {
+    "min": 1,
+    "max": 3,
+    "recalcSeconds": 5,
+    "activeWindowSeconds": 90,
+    "maxSizeBonus": 0.3,
+    "speedFactor": 0.4,
+    "paintRadius2At": 1.7,
+    "badgeAt": 1.2
+  },
+  "grid": { "cols": 96, "rows": 68 },
+  "limits": { "soldiers": 300, "particles": 800, "eventsPerFrame": 30, "queueMax": 4000 },
+  "gameplay": {
+    "soldierSpeed": 120,
+    "soldierRadius": 14,
+    "dashSeconds": 1.2,
+    "dashSpeed": 2.2,
+    "rallySoldiers": 3,
+    "spiritLikes": 300,
+    "spiritSoldiers": 10,
+    "spawnProtectSeconds": 2,
+    "eliteMass": 3,
+    "captainMass": 1.5,
+    "clashWear": 0.6,
+    "wearRecoverPerSecond": 0.15,
+    "labelLodThreshold": 120
+  },
+  "layout": { "topEmptyEnd": 0.10, "hudEnd": 0.20, "arenaEnd": 0.60, "bannerEnd": 0.68 },
+  "audio": {
+    "volume": { "master": 0.8, "sfx": 0.7, "music": 0.25, "ui": 0.5 },
+    "musicOn": true,
+    "bpm": 112,
+    "bpmOvertime": 132,
+    "maxVoices": 24,
+    "cooldownMs": { "join": 60, "dash": 100, "rally": 300, "clash": 50, "coin": 70, "elite": 200, "captain": 300 },
+    "duckDb": -8,
+    "duckSeconds": 1.5,
+    "talkModeDb": -12
+  }
+}
