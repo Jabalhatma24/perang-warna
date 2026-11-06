@@ -106,6 +106,9 @@ let bootId = '';
 let battleStartedAt = 0;
 let simulatedThisRound = false;
 let crownResult = null;
+// Top Likes selama live dari server, dan like per penonton untuk Top Liker ronde ini (hanya host).
+let topLikes = [];
+const roundLikes = new Map();
 let crownMvpAt = 0;
 let nextFireworkAt = 0;
 
@@ -1332,7 +1335,24 @@ function handleChat(message, now) {
   }
 }
 
+function roundTopLiker() {
+  let best = null;
+  for (const entry of roundLikes.values()) if (!best || entry.likes > best.likes) best = entry;
+  return best ? { nick: best.nick, likes: best.likes } : null;
+}
+
 function handleLikes(message) {
+  const users = message.data.users || {};
+  for (const id of Object.keys(users)) {
+    const [nick, count] = users[id];
+    const entry = roundLikes.get(id);
+    if (entry) {
+      entry.likes += Number(count) || 0;
+      entry.nick = nick;
+    } else if (roundLikes.size < 5000) {
+      roundLikes.set(id, { nick, likes: Number(count) || 0 });
+    }
+  }
   const likes = message.data.likes || {};
   for (const code of Object.keys(likes)) {
     const team = teamIndex.get(code);
@@ -1735,6 +1755,7 @@ function enterPrep() {
   round += 1;
   suddenUsed = false;
   crownResult = null;
+  roundLikes.clear();
   simulatedThisRound = Boolean(status.simActive || (localSim && localSim.running));
   layoutBases();
   clearArena();
@@ -1807,7 +1828,7 @@ function enterCrown(now) {
   const streak = scoreboard ? scoreboard.streak : { team: null, count: 0 };
   const breaksStreak = winnerCode !== null && streak.count >= 3 && streak.team !== winnerCode;
   const nextCount = winnerCode !== null && streak.team === winnerCode ? streak.count + 1 : 1;
-  crownResult = { winner: winnerIndex, mvp, territory, breaksStreak, crown: nextCount === 3 };
+  crownResult = { winner: winnerIndex, mvp, territory, breaksStreak, crown: nextCount === 3, topLiker: roundTopLiker() };
 
   const result = {
     roundId: `${bootId}-${round}`,
@@ -1922,6 +1943,10 @@ function onMessage(message) {
       break;
     case 'STATE_SNAPSHOT':
       if (role === 'view') applySnapshot(message.data);
+      break;
+    case 'TOP_LIKES':
+      topLikes = Array.isArray(message.data.top) ? message.data.top.slice(0, 3) : [];
+      titleDirty = true;
       break;
     case 'JOIN':
       viewerCount = message.data.viewerCount;
@@ -2060,6 +2085,39 @@ function roundedRect(c, x, y, width, height, radius) {
   else c.rect(x, y, width, height); // browser HP lama
 }
 
+function formatCount(value) {
+  if (value >= 1e6) return `${(value / 1e6).toFixed(value >= 1e7 ? 0 : 1)}M`;
+  if (value >= 1e4) return `${Math.round(value / 1e3)}K`;
+  if (value >= 1e3) return `${(value / 1e3).toFixed(1)}K`;
+  return String(value);
+}
+
+// Baris teratas: Top Likes selama live. Sebelum ada like, judul game yang tampil.
+function drawTopLikes(c, y) {
+  const segments = [{ text: '♥ TOP LIKES', color: '#ff5d8f', gap: 26 }];
+  topLikes.forEach((entry, index) => {
+    const team = entry.team ? teamIndex.get(entry.team) : undefined;
+    segments.push({ text: `${index + 1}`, color: '#ffd25a', gap: 8 });
+    segments.push({ text: entry.nick, color: team !== undefined ? teams[team].color : '#ffffff', gap: 8 });
+    segments.push({ text: formatCount(entry.likes), color: '#ffffff', gap: 26 });
+  });
+  const maxWidth = W - safeX * 2;
+  let size = 30;
+  let total = 0;
+  for (; size >= 16; size -= 1) {
+    c.font = `800 ${size}px ${FONT}`;
+    total = segments.reduce((sum, seg, i) => sum + c.measureText(seg.text).width + (i < segments.length - 1 ? seg.gap * size / 30 : 0), 0);
+    if (total <= maxWidth) break;
+  }
+  let x = (W - total) / 2;
+  c.textAlign = 'left';
+  segments.forEach((seg, i) => {
+    c.fillStyle = seg.color;
+    outlinedText(c, seg.text, x, y, 5);
+    x += c.measureText(seg.text).width + (i < segments.length - 1 ? seg.gap * size / 30 : 0);
+  });
+}
+
 function renderTitle() {
   titleDirty = false;
   const c = titleCtx;
@@ -2067,9 +2125,14 @@ function renderTitle() {
   c.clearRect(0, 0, W, height);
   c.textAlign = 'center';
   c.textBaseline = 'middle';
-  c.fillStyle = '#ffd25a';
-  fitFont(c, 'CONTINENTAL WAR', W - safeX * 2, 42, 800, 28);
-  outlinedText(c, 'CONTINENTAL WAR', W / 2, height * 0.36, 5);
+  if (topLikes.length > 0) {
+    drawTopLikes(c, height * 0.36);
+  } else {
+    c.fillStyle = '#ffd25a';
+    fitFont(c, 'CONTINENTAL WAR', W - safeX * 2, 42, 800, 28);
+    outlinedText(c, 'CONTINENTAL WAR', W / 2, height * 0.36, 5);
+  }
+  c.textAlign = 'center';
   c.fillStyle = '#ffffff';
   const join = `Type 1-${TEAM_COUNT} or your Country to join!`;
   fitFont(c, join, W - safeX * 2, 26, 700, 18);
@@ -2357,6 +2420,13 @@ function renderCrownOverlay() {
     const names = hall.slice(0, 5).map((entry) => `${entry.nick} (${entry.coins})`).join('  •  ');
     fitFont(c, names, width, 22, 600, 14);
     c.fillText(names, W / 2, 352);
+  }
+  // Penonton yang tidak menyawer juga punya alasan untuk disebut.
+  if (crownResult.topLiker) {
+    const liker = `♥ Top Liker: ${crownResult.topLiker.nick} • ${formatCount(crownResult.topLiker.likes)} likes`;
+    c.fillStyle = '#ff5d8f';
+    fitFont(c, liker, width, 28, 800, 16);
+    outlinedText(c, liker, W / 2, 404, 5);
   }
 }
 
@@ -2790,6 +2860,7 @@ function updateDebug(now) {
     bannerText,
     phaseLeft,
     labels: Array.from(labelRects.slice(0, labelCount * 4)),
+    topLikes,
     zones: { baseSize, safeX, titleTop, hudTop, arenaTop, arenaH, visibleH, bannerTop, bannerH, decoTop },
     emojiOk,
     flagsOk,

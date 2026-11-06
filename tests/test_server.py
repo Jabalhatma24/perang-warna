@@ -168,8 +168,53 @@ def test_gift_like_and_captain_events(tmp_path, wilayah, moderator):
         hub.on_like(user, 5)
         hub.on_like(user, 7)
         likes = await read_until(host, "LIKE_BATCH")
+        while not likes["data"]["likes"]:  # like sebelum bergabung bisa terkirim di batch tersendiri
+            likes = await read_until(host, "LIKE_BATCH")
         assert likes["data"]["likes"] == {"SOUTH_AMERICA": 12}
         like_task.cancel()
+
+    run(scenario, tmp_path, wilayah, moderator)
+
+
+def test_top_likes_ranking_and_round_batch(tmp_path, wilayah, moderator):
+    async def scenario(hub, client):
+        host = await connect(client, "host")
+        viewer = await connect(client, "view")
+        first = await read_until(viewer, "TOP_LIKES")
+        assert first["data"]["top"] == []
+        users = [{"id": str(i), "nick": f"Fan{i}"} for i in range(5)]
+        hub.on_comment(users[1], "2")
+        await read_until(host, "CHAT_ACTION")
+        for user, count in zip(users, [3, 50, 7, 20, 1]):
+            hub.on_like(user, count)
+        hub.on_like(users[0], 30)  # total 33
+        hub.flush_likes()
+
+        top = (await read_until(viewer, "TOP_LIKES"))["data"]["top"]
+        assert [(t["nick"], t["likes"], t["team"]) for t in top] == [
+            ("Fan1", 50, "EUROPE"), ("Fan0", 33, None), ("Fan3", 20, None)]
+        batch = (await read_until(host, "LIKE_BATCH"))["data"]
+        assert batch["likes"] == {"EUROPE": 50}
+        assert batch["users"]["0"] == ["Fan0", 33]
+
+        # Tanpa like baru, papan tidak dikirim ulang.
+        hub.flush_likes()
+        await assert_silent(viewer, "TOP_LIKES")
+
+    run(scenario, tmp_path, wilayah, moderator)
+
+
+def test_top_likes_hides_rude_nicks_and_emergency_bots(tmp_path, wilayah, moderator):
+    async def scenario(hub, client):
+        viewer = await connect(client, "view")
+        await read_until(viewer, "TOP_LIKES")
+        hub.on_like({"id": "sim_1", "nick": "BotKuat"}, 999)
+        hub.on_like({"id": "9", "nick": "anjing"}, 10)
+        hub.flush_likes()
+        top = (await read_until(viewer, "TOP_LIKES"))["data"]["top"]
+        assert len(top) == 1
+        assert top[0]["nick"].startswith("Player")
+        assert "anjing" not in json.dumps(top)
 
     run(scenario, tmp_path, wilayah, moderator)
 

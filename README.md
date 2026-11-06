@@ -155,6 +155,7 @@ Game menjelaskan dirinya sendiri:
 - **Markas** menampilkan singkatan benua dan angka untuk bergabung.
 - **Strip gift** di atas arena selalu tampil: 1 koin, 10+, 100+, dan 1000+ koin beserta efeknya. Kotaknya berkedip saat ada yang mengirim gift dari tingkat itu, dan diberi tanda `x2` saat Overtime.
 - **Baris tips** di antara strip gift dan arena berganti tiap 5 detik, sebagian berbahasa Indonesia. Saat ada pengumuman gift, baris ini dipakai pengumuman itu.
+- **Top Likes** di baris paling atas: 3 penonton dengan like terbanyak selama server menyala, dengan warna benuanya kalau sudah bergabung. Sebelum ada like, baris ini menampilkan judul game. Layar juara juga menyebut Top Liker ronde itu. Bot darurat tidak pernah masuk papan ini.
 - **Nama prajurit** satu baris dengan bendera negaranya (atau kode negara kalau perangkat tidak bisa menampilkan bendera). Nama hanya digambar di tempat kosong, jadi tidak pernah menumpuk. Paling banyak 14 nama sekaligus (`gameplay.maxLabels`).
 
 Durasinya diatur lewat `help.prepHowToSeconds` dan `help.tipSeconds` di `config.json`.

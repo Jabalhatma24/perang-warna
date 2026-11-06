@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import argparse
 import asyncio
+import heapq
 import hmac
 import json
 import logging
@@ -83,6 +84,11 @@ class Hub:
         self.active_host: Client | None = None
         self.last_snapshot: str | None = None
         self.likes: dict[str, int] = {}
+        # Top Likes selama server menyala: jumlah per penonton, nick tersaring disimpan per nick mentah.
+        self.like_totals: dict[str, int] = {}
+        self.like_names: dict[str, tuple[str, str]] = {}
+        self.like_batch: dict[str, int] = {}
+        self.top_likes: list[dict] = []
         self.tiktok_connected = False
         self.tiktok_detail = "Menunggu koneksi TikTok" if has_tiktok else "Tidak ada sumber chat"
         self.sim_task: asyncio.Task | None = None
@@ -149,9 +155,25 @@ class Hub:
                 self.broadcast("SCOREBOARD", self.storage.scoreboard())
 
     def on_like(self, raw_user: dict, count: int) -> None:
-        team = self.chat.team_of(str(raw_user.get("id", "")))
+        user_id = str(raw_user.get("id", ""))
+        count = max(0, int(count))
+        team = self.chat.team_of(user_id)
         if team is not None:
-            self.likes[team] = self.likes.get(team, 0) + int(count)
+            self.likes[team] = self.likes.get(team, 0) + count
+        # Bot darurat saat live sungguhan tidak boleh masuk papan Top Likes.
+        if not user_id or (user_id.startswith("sim_") and not self.simulate_mode):
+            return
+        raw_nick = str(raw_user.get("nick", ""))
+        cached = self.like_names.get(user_id)
+        if cached is None or cached[0] != raw_nick:
+            self.like_names[user_id] = (raw_nick, self.moderator.safe_nick(user_id, raw_nick))
+        self.like_totals[user_id] = self.like_totals.get(user_id, 0) + count
+        self.like_batch[user_id] = self.like_batch.get(user_id, 0) + count
+
+    def compute_top_likes(self, limit: int = 3) -> list[dict]:
+        ranked = heapq.nlargest(limit, self.like_totals.items(), key=lambda item: item[1])
+        return [{"id": user_id, "nick": self.like_names[user_id][1], "likes": total,
+                 "team": self.chat.team_of(user_id)} for user_id, total in ranked]
 
     def on_social(self, raw_user: dict, reason: str) -> None:
         user = self.clean_user(raw_user)
@@ -220,6 +242,7 @@ class Hub:
         client.role = role
         self.send_to(client, "STATUS", self.status())
         self.send_to(client, "SCOREBOARD", self.storage.scoreboard())
+        self.send_to(client, "TOP_LIKES", {"top": self.top_likes})
         if role == "host":
             previous = self.active_host
             if previous is not None and previous is not client:
@@ -293,9 +316,19 @@ class Hub:
     async def like_loop(self) -> None:
         while True:
             await asyncio.sleep(1)
-            if self.likes:
-                likes, self.likes = self.likes, {}
-                self.to_host("LIKE_BATCH", {"likes": likes})
+            self.flush_likes()
+
+    def flush_likes(self) -> None:
+        if self.likes or self.like_batch:
+            likes, self.likes = self.likes, {}
+            users, self.like_batch = self.like_batch, {}
+            # users dipakai host untuk Top Liker ronde; nick ikut supaya host tidak perlu menebak.
+            batch = {user_id: [self.like_names[user_id][1], count] for user_id, count in users.items()}
+            self.to_host("LIKE_BATCH", {"likes": likes, "users": batch})
+        top = self.compute_top_likes()
+        if top != self.top_likes:
+            self.top_likes = top
+            self.broadcast("TOP_LIKES", {"top": top})
 
     async def stats_loop(self) -> None:
         while True:
