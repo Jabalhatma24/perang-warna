@@ -10,13 +10,15 @@ from pathlib import Path
 
 _NON_WORD = re.compile(r"[\W_]+", re.UNICODE)
 _REPEAT_3 = re.compile(r"([^\W\d_])\1{2,}", re.UNICODE)
-_RALLY = re.compile(r"^(g+a+s+|r+u+s+h+)$")
-_FLAG = re.compile("[\U0001F1E6-\U0001F1FF]{2}")
+# Seruan menyerbu: gas, gaskeun, gaspol, serbu, serang, dan rush (sisa versi internasional).
+_RALLY = re.compile(r"^(g+a+s+|g+a+s+k+e+u+n+|g+a+s+p+o+l+|s+e+r+b+u+|s+e+r+a+n+g+|r+u+s+h+)$")
 _LEET = str.maketrans({"4": "a", "3": "e", "1": "i", "0": "o", "5": "s"})
+# "Absen plat nomor" sudah jadi kebiasaan live TikTok Indonesia: "plat B", "pelat AB", "plat DD".
+PLATE_PREFIXES = ("plat", "pelat")
 
 
 def _fold_latin(text: str) -> str:
-    """Menghapus tanda baca huruf Latin (mexico = méxico). Aksara lain tidak disentuh."""
+    """Menghapus tanda baca huruf Latin (Bandúng = Bandung). Aksara lain tidak disentuh."""
     kept: list[str] = []
     latin_base = False
     for char in unicodedata.normalize("NFD", text):
@@ -37,34 +39,39 @@ def normalize(text: str) -> str:
     return " ".join(text.split())
 
 
+def province_aliases(province: dict) -> list[str]:
+    """Semua sebutan satu provinsi: nama resmi, alias kota/singkatan/gaul, lalu plat nomornya."""
+    plates = [f"{prefix} {plate}" for plate in province.get("plates", []) for prefix in PLATE_PREFIXES]
+    return [province["name"], *province.get("aliases", []), *plates]
+
+
 @dataclass(frozen=True)
 class TeamMatch:
     team: str
-    country: str | None
+    province: str | None
 
 
 class Wilayah:
-    """Kamus kubu, negara, dan alias dari data/wilayah.json."""
+    """Kamus 4 pulau, provinsi, kota, plat nomor, dan alias dari data/wilayah.json."""
 
     def __init__(self, data: dict):
         self.kubu = sorted(data["kubu"], key=lambda k: k["no"])
-        self.countries = data["countries"]
+        self.provinces = data["provinces"]
         self.codes = [k["code"] for k in self.kubu]
         self.by_no = {str(k["no"]): k["code"] for k in self.kubu}
         self.ambiguous = {tuple(normalize(a).split()) for a in data.get("ambiguous", [])}
+        self.hostile = {normalize(word) for word in data.get("hostile", [])}
         self.alias_map: dict[tuple[str, ...], TeamMatch] = {}
 
         known = set(self.codes)
-        self.flag_map: dict[str, TeamMatch] = {}
-        for country in self.countries:
-            if country["kubu"] not in known:
-                raise ValueError(f"Kubu tidak dikenal untuk {country['name']}: {country['kubu']}")
-            match = TeamMatch(country["kubu"], country["name"])
-            self.flag_map[country["iso"]] = match
-            for alias in [country["name"], *country.get("aliases", [])]:
+        for province in self.provinces:
+            if province["kubu"] not in known:
+                raise ValueError(f"Kubu tidak dikenal untuk {province['name']}: {province['kubu']}")
+            match = TeamMatch(province["kubu"], province["name"])
+            for alias in province_aliases(province):
                 self.alias_map[tuple(normalize(alias).split())] = match
 
-        # Alias kubu ditulis terakhir: label di layar seperti "SA" lebih utama daripada kode ISO negara.
+        # Alias pulau ditulis terakhir, dengan province = None: "jawa" saja tidak menunjuk satu provinsi.
         for kubu in self.kubu:
             for alias in kubu.get("aliases", []):
                 self.alias_map[tuple(normalize(alias).split())] = TeamMatch(kubu["code"], None)
@@ -77,27 +84,21 @@ class Wilayah:
             return cls(json.load(handle))
 
     def _is_standalone_only(self, key: tuple[str, ...]) -> bool:
-        # Kode 2 huruf (it, in, my, us) adalah kata sehari-hari, jadi hanya sah jika berdiri sendiri.
+        # Kata umum (malang, medan, padang, solo) dan singkatan 2 huruf (jw, sm, kl, sl)
+        # hanya sah jika berdiri sendiri: "nasib malang" atau "medan perang" bukan nama kota.
         return key in self.ambiguous or (len(key) == 1 and len(key[0]) <= 2 and key[0].isascii())
-
-    def _flags_in(self, text: str) -> list[TeamMatch]:
-        found = []
-        for flag in _FLAG.findall(text or ""):
-            iso = "".join(chr(ord(char) - 0x1F1E6 + ord("a")) for char in flag)
-            if iso in self.flag_map:
-                found.append(self.flag_map[iso])
-        return found
 
     def match(self, text: str) -> TeamMatch | None:
         """Cocokkan komentar ke kubu. None berarti komentar ini bukan perintah gabung."""
         tokens = normalize(text).split()
-        found = self._flags_in(text)
-        if not tokens and not found:
+        if not tokens:
             return None
 
-        if not found and len(tokens) == 1 and tokens[0] in self.by_no:
+        if len(tokens) == 1 and tokens[0] in self.by_no:
             return TeamMatch(self.by_no[tokens[0]], None)
 
+        found: list[TeamMatch] = []
+        loose: set[str] = set()  # kata di luar alias, untuk memeriksa ejekan
         index = 0
         while index < len(tokens):
             for size in range(min(self.max_alias_len, len(tokens) - index), 0, -1):
@@ -111,12 +112,15 @@ class Wilayah:
                 index += size
                 break
             else:
+                loose.add(tokens[index])
                 index += 1
 
-        if not found or len({m.team for m in found}) > 1:
+        # "serbu jawa" atau "sumatera cupu" menyebut pulau lawan, bukan pulau yang dibela.
+        # Kata di dalam alias tidak dihitung, supaya "kota serang" tetap masuk Banten.
+        if not found or len({m.team for m in found}) > 1 or not self.hostile.isdisjoint(loose):
             return None
-        country = next((m.country for m in found if m.country), None)
-        return TeamMatch(found[0].team, country)
+        province = next((m.province for m in found if m.province), None)
+        return TeamMatch(found[0].team, province)
 
 
 def is_rally(text: str) -> bool:
@@ -131,6 +135,9 @@ class ChatProcessor:
         self.dash_cooldown = dash_cooldown
         self.rally_cooldown = rally_cooldown
         self.user_team: dict[str, str] = {}
+        # Provinsi terakhir per akun, dikirim di setiap aksi: label "Budi JATIM" tetap ada setelah host
+        # memuat ulang halaman atau ronde berganti, walau penonton hanya mengetik "1" atau komentar biasa.
+        self.user_province: dict[str, str | None] = {}
         self._last_dash: dict[str, float] = {}
         self._last_rally: dict[str, float] = {}
         self.stats = {"comments": 0, "no_team": 0, "cooldown_dropped": 0}
@@ -144,8 +151,11 @@ class ChatProcessor:
 
         match = self.wilayah.match(text)
         if match is not None:
+            # "1" setelah "bandung" tetap Jawa Barat; pindah pulau tanpa menyebut provinsi menghapusnya.
+            if match.province is not None or self.user_team.get(user_id) != match.team:
+                self.user_province[user_id] = match.province
             self.user_team[user_id] = match.team
-            return {"action": "TEAM_JOIN", "team": match.team, "country": match.country}
+            return {"action": "TEAM_JOIN", "team": match.team, "province": self.user_province[user_id]}
 
         team = self.user_team.get(user_id)
         if team is None:
@@ -157,13 +167,13 @@ class ChatProcessor:
                 self.stats["cooldown_dropped"] += 1
                 return None
             self._last_rally[user_id] = now
-            return {"action": "RALLY", "team": team, "country": None}
+            return {"action": "RALLY", "team": team, "province": self.user_province.get(user_id)}
 
         if now - self._last_dash.get(user_id, float("-inf")) < self.dash_cooldown:
             self.stats["cooldown_dropped"] += 1
             return None
         self._last_dash[user_id] = now
-        return {"action": "DASH", "team": team, "country": None}
+        return {"action": "DASH", "team": team, "province": self.user_province.get(user_id)}
 
 
 def _moderation_form(text: str) -> str:
@@ -178,7 +188,7 @@ class Moderator:
     """Menyaring nickname. Kata >= 5 huruf dicek sebagai potongan, sisanya kata utuh.
 
     Awalan `=` di blocklist memaksa cek kata utuh, untuk kata yang bentuk ringkasnya
-    menjadi bagian kata wajar (misalnya nama negara).
+    menjadi bagian kata wajar (misalnya nama daerah).
     """
 
     NICK_MAX = 12

@@ -1,7 +1,8 @@
 {
-  "name": "Continental War: Battle of Nations",
-  "short_name": "Continental War",
-  "description": "Interactive TikTok LIVE game: 4 continents battle for the arena.",
+  "name": "Perang Pulau Nusantara: 4 Pulau Besar",
+  "short_name": "Perang Pulau",
+  "description": "Game interaktif TikTok LIVE: Jawa, Sumatera, Kalimantan, dan Sulawesi berebut arena.",
+  "lang": "id",
   "id": "/",
   "start_url": "/",
   "scope": "/",

@@ -1,7 +1,7 @@
 // Bot darurat di HP, dipakai hanya jika tombol darurat ditekan saat WebSocket putus.
 // Menghasilkan pesan dengan bentuk yang sama seperti backend.
 
-const NAMES = ['Budi', 'Sari', 'Yuki', 'Min', 'Jose', 'Maria', 'John', 'Emma', 'Ahmed', 'Omar', 'Kofi', 'Mia'];
+const NAMES = ['Budi', 'Sari', 'Ucok', 'Butet', 'Asep', 'Neng', 'Daeng', 'Andi', 'Agus', 'Rina', 'Wayan', 'Siti'];
 const EVENTS_PER_SECOND = 8;
 const BOT_COUNT = 60;
 
@@ -9,7 +9,7 @@ export class LocalSim {
   constructor(wilayah, push) {
     this.push = push;
     this.codes = wilayah.kubu.map((k) => k.code);
-    this.countries = wilayah.countries;
+    this.provinces = wilayah.provinces;
     this.timer = 0;
     this.seq = 0;
     this.group = 0;
@@ -54,16 +54,16 @@ export class LocalSim {
     const bot = this.bots[Math.floor(Math.random() * this.bots.length)];
     if (!bot.joined) {
       bot.joined = true;
-      const options = this.countries.filter((c) => c.kubu === bot.team);
-      const country = Math.random() < 0.7 ? options[Math.floor(Math.random() * options.length)].name : null;
-      this.emit('CHAT_ACTION', { action: 'TEAM_JOIN', team: bot.team, country }, bot.user);
+      const options = this.provinces.filter((p) => p.kubu === bot.team);
+      const province = Math.random() < 0.7 ? options[Math.floor(Math.random() * options.length)].name : null;
+      this.emit('CHAT_ACTION', { action: 'TEAM_JOIN', team: bot.team, province }, bot.user);
       return;
     }
     const roll = Math.random();
     if (roll < 0.72) {
-      this.emit('CHAT_ACTION', { action: 'DASH', team: bot.team, country: null }, bot.user);
+      this.emit('CHAT_ACTION', { action: 'DASH', team: bot.team, province: null }, bot.user);
     } else if (roll < 0.82) {
-      this.emit('CHAT_ACTION', { action: 'RALLY', team: bot.team, country: null }, bot.user);
+      this.emit('CHAT_ACTION', { action: 'RALLY', team: bot.team, province: null }, bot.user);
     } else if (roll < 0.93) {
       this.emit('LIKE_BATCH', { likes: { [bot.team]: 12 } });
     } else if (roll < 0.985) {

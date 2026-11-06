@@ -6,5 +6,7 @@ data/wins.sim.json
 data/host.key
 data/wins.continental.json
 data/wins.continental.sim.json
+data/wins.pulau4.json
+data/wins.pulau4.sim.json
 .chrome-studio/
 tools/.streamlabs-keygen/

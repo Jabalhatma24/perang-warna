@@ -1,10 +1,10 @@
-# Continental War: Battle of Nations
+# Perang Pulau Nusantara: 4 Pulau Besar
 
-Game interaktif untuk TikTok LIVE. Penonton memilih 1 dari 4 benua lewat komentar, lalu prajurit mereka mengecat arena. Warna terluas di akhir ronde mendapat 1 Win.
+Game interaktif untuk TikTok LIVE. Penonton membela 1 dari 4 pulau besar (1 JAWA, 2 SUMATERA, 3 KALIMANTAN, 4 SULAWESI) lewat komentar, lalu prajurit mereka mengecat arena. Warna terluas di akhir ronde mendapat 1 Win.
 
 Satu proses Python melayani game dan WebSocket di port 8080. Game berjalan di browser HP atau PC tanpa build step, tanpa internet untuk aset, dan tanpa berkas audio.
 
-Versi Perang Warna Nusantara ada di riwayat git, dan datanya tetap tersimpan di `data/wins.json`.
+Versi sebelumnya ada di riwayat git: 7 wilayah Nusantara (`data/wins.json`) dan Continental War 4 benua (`data/wins.continental.json`, branch `fitur/kristal-studio-v2`). Klasemen 4 pulau disimpan di berkas sendiri, `data/wins.pulau4.json`, jadi data versi lama tidak tersentuh.
 
 ## Menjalankan
 
@@ -28,11 +28,11 @@ Skrip membuat virtualenv, memasang dependensi, menjalankan `pytest`, lalu menyal
 
 | Flag | Fungsi |
 | --- | --- |
-| `--simulate` | Bot penonton. Hasilnya disimpan terpisah di `data/wins.continental.sim.json` |
+| `--simulate` | Bot penonton. Hasilnya disimpan terpisah di `data/wins.pulau4.sim.json` |
 | `--rate low\|normal\|high` | Kepadatan bot |
 | `--username @akun` | Terhubung ke live TikTok, mencoba ulang otomatis jika live belum mulai |
 | `--keep-session` | Melanjutkan Win sesi setelah crash |
-| `--reset-all` | Menghapus All-Time Ranking dan Hall of Fame benua |
+| `--reset-all` | Menghapus Klasemen Abadi dan Hall of Fame 4 pulau |
 | `--port N` | Mengganti port |
 
 ## Menghubungkan HP
@@ -109,61 +109,68 @@ Tutup port 8080 di firewall VPS, lalu pasang lewat Chrome di HP: buka tautan ope
 | Tombol `M` (laptop) | Bisukan |
 | Tombol `T` (laptop) | Mode Bicara, menurunkan semua audio -12 dB |
 
-Ronde yang tercampur bot darurat tetap menambah Win sesi, tetapi tidak masuk All-Time Ranking dan Hall of Fame.
+Ronde yang tercampur bot darurat tetap menambah Win sesi, tetapi tidak masuk Klasemen Abadi dan Hall of Fame.
 
 ## Aturan untuk penonton
 
 | Komentar | Efek |
 | --- | --- |
-| `1`-`4`, nama benua, negara, atau emoji bendera | Gabung benua |
-| `gas` atau `rush` | Menyerbu: prajurit melesat dan memanggil 3 prajurit tambahan (jeda 10 detik) |
+| `1`-`4`, nama pulau, provinsi, kota, singkatan, sebutan gaul, atau `plat B` | Gabung pulau |
+| `gas`, `gaskeun`, `gaspol`, `serbu`, `serang`, atau `rush` | Menyerbu: prajurit melesat dan memanggil 3 prajurit tambahan (jeda 10 detik) |
 | Komentar lain | Prajurit melesat sebentar (jeda 3 detik). Prajurit yang kalah muncul lagi |
 
-Pindah benua hanya bisa saat PREPARATION. Benua: 1 ASIA, 2 EUROPE, 3 N.AMERICA, 4 S.AMERICA.
+Pindah pulau hanya bisa saat PERSIAPAN. Pulau: 1 JAWA (merah), 2 SUMATERA (kuning), 3 KALIMANTAN (hijau), 4 SULAWESI (biru). Penonton dari Bali, Nusa Tenggara, Maluku, dan Papua ikut dengan angka 1-4.
 
-Keempatnya dipilih karena jumlah pengguna TikTok-nya terbanyak. Setiap markas menempati satu sudut arena, jadi jarak dan wilayah awal semua benua sama. Posisinya berputar searah jarum jam setiap ronde.
+Setiap markas menempati satu sudut arena, jadi jarak dan wilayah awal semua pulau sama. Ronde pertama mengikuti peta (Sumatera kiri atas, Kalimantan kanan atas, Sulawesi kanan bawah, Jawa kiri bawah), lalu posisinya berputar searah jarum jam setiap ronde.
 
 | Gift | Koin per unit | Efek |
 | --- | --- | --- |
 | MICRO (Rose) | 1-9 | +10 prajurit bonus per koin (maksimal 30 per event), cipratan cat, Combo. Prajurit bonus lebih lemah, tanpa Underdog, hilang setelah 30 detik |
-| MID (Donut) | 10-99 | Giant Titan Warrior 15 detik: besar, kuat, dan mengecat lebih lebar |
-| SULTAN | 100-999 | Meteor di wilayah benua terdepan. Jika penyawer dari benua terdepan, Meteor jatuh di peringkat kedua |
-| MEGA | 1000+ | Takeover: gelombang warna, benua 2x kuat 20 detik, Shield 10 detik, nama masuk Sultan Wall |
+| MID (Donut) | 10-99 | Titan Raksasa 15 detik: besar, kuat, dan mengecat lebih lebar |
+| SULTAN | 100-999 | Meteor di wilayah pulau terdepan. Jika penyawer dari pulau terdepan, Meteor jatuh di peringkat kedua |
+| MEGA | 1000+ | Ambil Alih: gelombang warna, pulau 2x kuat 20 detik, Perisai 10 detik, nama masuk Prasasti Sultan |
 
-Selama Shield aktif, prajurit benua itu tidak bisa mati oleh tabrakan atau Meteor. Wilayahnya tetap bisa dicat lawan.
+Selama Perisai aktif, prajurit pulau itu tidak bisa mati oleh tabrakan atau Meteor. Wilayahnya tetap bisa dicat lawan.
 
 Gift yang datang di luar pertempuran ditahan dan efeknya aktif saat perang berikutnya mulai.
 
-## Kamus negara
+## Kamus wilayah
 
-`data/wilayah.json` berisi 4 benua dan 104 negara dengan alias Inggris, Indonesia, sebagian aksara lokal, dan kode ISO.
+`data/wilayah.json` berisi 4 pulau dan 27 provinsinya (Jawa 6, Sumatera 10, Kalimantan 5, Sulawesi 6), dengan sekitar 500 nama kota, kabupaten, singkatan, sebutan gaul, nama suku, dan klub sepak bola, ditambah 47 kode plat nomor.
 
-Negara Timur Tengah, Afrika, dan Oseania sengaja tidak ada. Komentar berisi nama atau bendera negara itu diabaikan, tetapi penontonnya tetap bisa ikut dengan mengetik angka 1-4. Daftar lengkapnya masih ada di riwayat git (commit `86029bc`).
+- **Provinsi dan kota:** `jabar`, `bandung`, `bdg`, `jogja`, `sby`, `mdn`, `plg`, `pku`, `bpp`, `ptk`, `mks`, `manado`. Provinsi yang ditulis lengkap lebih utama daripada nama pulau di dalamnya: `jawa barat` adalah Jawa Barat, bukan sekadar Jawa.
+- **Sebutan gaul dan identitas daerah:** `jekardah`, `ngalam`, `suroboyo`, `ngapak`, `urang sunda`, `horas`, `urang awak`, `wong kito galo`, `urang banjar`, `dayak`, `ewako`, `kawanua`, serta suporter `bonek`, `bobotoh`, `jakmania`, `aremania`.
+- **Absen plat nomor:** `plat B`, `pelat AB`, `plat BK`, `plat KT`, `plat DD`. Huruf plat tanpa kata `plat` tidak dihitung.
+- **Label markas 2 huruf (`JW`, `SM`, `KL`, `SL`) hanya sah jika berdiri sendiri,** supaya `i love kl` tidak bergabung ke Kalimantan.
+- **Kata di daftar `ambiguous` hanya sah jika berdiri sendiri:** `malang`, `medan`, `padang`, `solo`, `palu`, `batu`, `kudus`, `pati`, `tegal`, dan lainnya. `medan` bergabung ke Sumatera Utara, tetapi `medan perang` dan `nasib malang` tidak.
+- **Ejekan tidak dihitung sebagai gabung.** Komentar yang menyebut pulau bersama kata di daftar `hostile` (`serbu`, `hajar`, `cupu`, `kalah`, `vs`, `bukan`, dan lainnya) bukan perintah gabung, jadi `sumatera cupu` dari pendukung Jawa tetap menggerakkan prajurit Jawa dan like-nya tetap untuk Jawa. Kata di dalam nama daerah tidak dihitung, jadi `kota serang` tetap masuk Banten.
+- **Dua pulau dalam satu komentar diabaikan,** misalnya `jawa vs sumatera` atau `bandung palembang`.
+- **Nama yang dipakai di dua pulau** diberikan ke yang paling dikenal: `banjar` (Kalsel, Kota Banjar di Jabar memakai `kota banjar`), `martapura` (Kalsel), `ketapang` (Kalbar).
+- **Sengaja tidak dipakai:** `nusantara` (judul game sekaligus nama IKN, IKN memakai `ikn`), `serang` sendirian (berarti menyerang), `metro` (Kota Metro memakai `kota metro`), `indonesia`, dan 🇮🇩, karena keempat pulau sama-sama Indonesia.
 
-- **Kode 2 huruf hanya sah jika berdiri sendiri.** `it` bergabung ke Italy, tetapi `i love it` tidak.
-- **Kode yang merupakan kata sehari-hari tidak dipakai:** `no`, `me`, `so`, `to`, `is`, `am`, `at`, `be`, `do`, `si`, `la`, `pa`, `by`, `ai`. Benderanya tetap berlaku.
-- **Label di layar lebih utama daripada kode negara.** `SA` berarti S.AMERICA dan `AS` berarti ASIA. Arab Saudi memakai `ksa` atau `saudi`.
-- **Kata di daftar `ambiguous` hanya sah jika berdiri sendiri,** misalnya `cuba`, `chad`, `turkey`, dan `french`.
-- **Emoji bendera selalu sah,** kecuali komentar menyebut dua benua berbeda.
+Backend mengingat provinsi terakhir setiap penonton dan menyertakannya di setiap aksi, sehingga label nama tetap membawa provinsinya setelah host memuat ulang halaman.
 
 ## Siaran tanpa suara host
 
 Game menjelaskan dirinya sendiri:
 
-- **Kartu How to Play** tampil selama 12 detik pertama PREPARATION, lalu berganti ke All-Time Ranking. Selama ranking masih kosong, kartu ini tampil sepanjang PREPARATION.
-- **Papan skor** berupa tabel 4 kolom: `1 ASIA`, persen wilayah, jumlah menang, dan bonus Underdog (`▲1.5`). Kubu yang memimpin diberi bingkai emas.
-- **Markas** menampilkan singkatan benua dan angka untuk bergabung.
-- **Strip gift** di atas arena selalu tampil: 1 koin, 10+, 100+, dan 1000+ koin beserta efeknya. Kotaknya berkedip saat ada yang mengirim gift dari tingkat itu, dan diberi tanda `x2` saat Overtime.
-- **Baris tips** di antara strip gift dan arena berganti tiap 5 detik, sebagian berbahasa Indonesia. Saat ada pengumuman gift, baris ini dipakai pengumuman itu.
-- **Top Likes** di baris paling atas: 3 penonton dengan like terbanyak selama server menyala, dengan warna benuanya kalau sudah bergabung. Sebelum ada like, baris ini menampilkan judul game. Layar juara juga menyebut Top Liker ronde itu. Bot darurat tidak pernah masuk papan ini.
-- **Nama prajurit** satu baris dengan bendera negaranya (atau kode negara kalau perangkat tidak bisa menampilkan bendera). Nama hanya digambar di tempat kosong, jadi tidak pernah menumpuk. Paling banyak 14 nama sekaligus (`gameplay.maxLabels`).
+Seluruh teks di layar berbahasa Indonesia.
+
+- **Kartu Cara Main** tampil selama 12 detik pertama PERSIAPAN, lalu berganti ke Klasemen Abadi. Selama klasemen masih kosong, kartu ini tampil sepanjang PERSIAPAN.
+- **Papan skor** berupa tabel 4 kolom: `1 JAWA`, `2 SUMATERA`, `3 KALIMANTAN`, `4 SULAWESI`, persen wilayah, jumlah menang, dan bonus Underdog (`▲1.5`). Pulau yang memimpin diberi bingkai emas, dan mahkota menggantikan bintang setelah 3 kemenangan beruntun.
+- **Markas** menampilkan label pulau (`JW`, `SM`, `KL`, `SL`) dan angka untuk bergabung.
+- **Strip gift** di atas arena selalu tampil: 1 koin, 10+, 100+, dan 1000+ koin beserta efeknya. Kotaknya berkedip saat ada yang mengirim gift dari tingkat itu, dan diberi tanda `x2` saat Waktu Tambahan.
+- **Baris tips** di antara strip gift dan arena berganti tiap 5 detik, termasuk contoh kota per pulau dan contoh plat nomor. Saat ada pengumuman gift, baris ini dipakai pengumuman itu.
+- **Top Likes** di baris paling atas: 3 penonton dengan like terbanyak selama server menyala, masing-masing dengan chip pulaunya (`JW`, `SM`, `KL`, `SL`) kalau sudah bergabung. Sebelum ada like, baris ini menampilkan judul game. Bot darurat tidak pernah masuk papan ini.
+- **Layar juara** menampilkan `PULAU <NAMA>`, persen wilayah, jumlah kemenangan beruntun (mulai 2x), MVP, Hall of Fame, dan Top Liker ronde itu beserta pulaunya.
+- **Nama prajurit** satu baris dengan singkatan provinsinya berwarna emas, misalnya `Budi JATIM` atau `Ucok SUMUT`. Kalau tidak muat, nama yang dipendekkan, bukan singkatannya. Nama hanya digambar di tempat kosong, jadi tidak pernah menumpuk. Paling banyak 14 nama sekaligus (`gameplay.maxLabels`).
 
 Durasinya diatur lewat `help.prepHowToSeconds` dan `help.tipSeconds` di `config.json`.
 
 Teks siap tempel untuk TikTok:
 
-- **Judul live:** `Continental War: Type 1-4!`
-- **Komentar yang disematkan:** `Type your number: 1 Asia 2 Europe 3 N.America 4 S.America. Biggest color wins!`
+- **Judul live:** `PERANG PULAU NUSANTARA! Bela pulaumu, ketik 1-4 🔥`
+- **Komentar yang disematkan:** `Ketik angka atau kotamu: 1 Jawa 2 Sumatera 3 Kalimantan 4 Sulawesi. Absen plat juga bisa: plat B, plat BK, plat KT, plat DD!`
 
 ## TikTok LIVE Studio di PC
 
@@ -173,7 +180,7 @@ Bagian ini belum diuji di Windows atau di TikTok LIVE Studio sungguhan, jadi lak
 2. Salin perintah itu ke terminal kedua. Perintah ini membuka jendela Chrome 9:16 tanpa bilah alamat. Isinya memuat kunci host, jadi jangan disiarkan.
 3. Tekan **START** di jendela itu. Di PC game tidak masuk fullscreen, supaya tetap 9:16.
 4. Di Studio, pilih tata letak **potret** dengan kanvas 1080x1920.
-5. **Add source > Window Capture**, lalu pilih jendela Continental War dan sesuaikan ukurannya mengisi kanvas. Jika hasilnya hitam, pakai Screen Capture lalu potong areanya.
+5. **Add source > Window Capture**, lalu pilih jendela Perang Pulau Nusantara dan sesuaikan ukurannya mengisi kanvas. Jika hasilnya hitam, pakai Screen Capture lalu potong areanya.
 6. Aktifkan suara desktop atau aplikasi di Studio. Cek lewat akun kedua bahwa suara game masuk.
 7. Baru tekan **Go LIVE**.
 
@@ -232,7 +239,7 @@ Skrip mengunci alat pada satu commit yang sudah dibaca kodenya. Alatnya sendiri 
 ## Mengubah data
 
 - `config.json`: durasi fase, ambang tier, cooldown, keseimbangan, batas zona layar, audio. Muat ulang server setelah mengubahnya.
-- `data/wilayah.json`: benua, negara, alias. Setiap alias hanya boleh dimiliki satu negara. Kata di daftar `ambiguous` hanya dihitung jika komentar hanya berisi kata itu.
+- `data/wilayah.json`: pulau, provinsi (`tag` untuk label, `plates` untuk plat nomor), alias. Setiap alias hanya boleh dimiliki satu provinsi. Kata di daftar `ambiguous` hanya dihitung jika komentar hanya berisi kata itu, dan kata di daftar `hostile` membatalkan gabung.
 - `data/blocklist.txt`: kata terlarang untuk nickname, satu per baris. Awalan `=` memaksa cek kata utuh, untuk kata yang menjadi bagian nama wajar.
 
 Zona layar diukur dari tangkapan layar TikTok di HP 1182x2560: profil host menutupi bagian teratas, dan kolom komentar mulai sekitar 51% dari atas (`layout.commentTop`). Urutan dari atas: judul, papan skor, strip gift dan pengumuman, lalu arena. Sepertiga bawah arena boleh tertutup komentar, tetapi markas dan nama prajurit hanya ditaruh di bagian yang terlihat. Teks dijauhkan `safeX` = 100 piksel dari tepi kiri-kanan, berjaga kalau TikTok memotong sisi video 9:16.

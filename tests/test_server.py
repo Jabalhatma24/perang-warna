@@ -53,7 +53,7 @@ async def assert_silent(ws, msg_type, duration=0.15):
         pass
 
 
-def result(round_id, winner="ASIA"):
+def result(round_id, winner="JAWA"):
     return {"roundId": round_id, "round": 1, "winner": winner, "territory": {}, "mvp": None}
 
 
@@ -77,16 +77,16 @@ def test_round_result_only_from_host_and_deduplicated(tmp_path, wilayah, moderat
         host = await connect(client, "host")
         await read_until(host, "SCOREBOARD")
         await asyncio.sleep(0.05)
-        assert hub.storage.state["session"]["ASIA"] == 0
+        assert hub.storage.state["session"]["JAWA"] == 0
 
         await send(host, "ROUND_RESULT", result("r1"))
         board = await read_until(host, "SCOREBOARD")
-        assert board["data"]["session"]["ASIA"] == 1
+        assert board["data"]["session"]["JAWA"] == 1
         assert "r1" in board["data"]["recentRoundIds"]
 
         await send(host, "ROUND_RESULT", result("r1"))
         await read_until(host, "SCOREBOARD")
-        assert hub.storage.state["session"]["ASIA"] == 1
+        assert hub.storage.state["session"]["JAWA"] == 1
 
     run(scenario, tmp_path, wilayah, moderator)
 
@@ -101,11 +101,11 @@ def test_newest_host_replaces_old_one(tmp_path, wilayah, moderator):
 
         await send(first, "ROUND_RESULT", result("old"))
         await asyncio.sleep(0.05)
-        assert hub.storage.state["session"]["ASIA"] == 0
+        assert hub.storage.state["session"]["JAWA"] == 0
 
         await send(second, "ROUND_RESULT", result("new"))
         await read_until(second, "SCOREBOARD")
-        assert hub.storage.state["session"]["ASIA"] == 1
+        assert hub.storage.state["session"]["JAWA"] == 1
 
     run(scenario, tmp_path, wilayah, moderator)
 
@@ -130,9 +130,9 @@ def test_chat_flow_and_comment_text_never_leaves_backend(tmp_path, wilayah, mode
         hub.on_comment(user, "rahasia tanpa kubu")
         await assert_silent(host, "CHAT_ACTION")
 
-        hub.on_comment(user, "canada")
+        hub.on_comment(user, "hadir dari pontianak")
         join = await read_until(host, "CHAT_ACTION")
-        assert join["data"] == {"action": "TEAM_JOIN", "team": "NORTH_AMERICA", "country": "Canada"}
+        assert join["data"] == {"action": "TEAM_JOIN", "team": "KALIMANTAN", "province": "Kalimantan Barat"}
         assert join["user"]["nick"].startswith("Player")
 
         hub.on_comment(user, "komentar rahasia")
@@ -163,14 +163,14 @@ def test_gift_like_and_captain_events(tmp_path, wilayah, moderator):
         await read_until(host, "CHAT_ACTION")
         hub.on_social(user, "share")
         captain = await read_until(host, "CAPTAIN")
-        assert captain["data"] == {"reason": "share", "team": "SOUTH_AMERICA"}
+        assert captain["data"] == {"reason": "share", "team": "SULAWESI"}
 
         hub.on_like(user, 5)
         hub.on_like(user, 7)
         likes = await read_until(host, "LIKE_BATCH")
         while not likes["data"]["likes"]:  # like sebelum bergabung bisa terkirim di batch tersendiri
             likes = await read_until(host, "LIKE_BATCH")
-        assert likes["data"]["likes"] == {"SOUTH_AMERICA": 12}
+        assert likes["data"]["likes"] == {"SULAWESI": 12}
         like_task.cancel()
 
     run(scenario, tmp_path, wilayah, moderator)
@@ -192,9 +192,9 @@ def test_top_likes_ranking_and_round_batch(tmp_path, wilayah, moderator):
 
         top = (await read_until(viewer, "TOP_LIKES"))["data"]["top"]
         assert [(t["nick"], t["likes"], t["team"]) for t in top] == [
-            ("Fan1", 50, "EUROPE"), ("Fan0", 33, None), ("Fan3", 20, None)]
+            ("Fan1", 50, "SUMATERA"), ("Fan0", 33, None), ("Fan3", 20, None)]
         batch = (await read_until(host, "LIKE_BATCH"))["data"]
-        assert batch["likes"] == {"EUROPE": 50}
+        assert batch["likes"] == {"SUMATERA": 50}
         assert batch["users"]["0"] == ["Fan0", 33]
 
         # Tanpa like baru, papan tidak dikirim ulang.
@@ -248,22 +248,22 @@ def test_emergency_simulation_stays_out_of_all_time(tmp_path, wilayah, moderator
 
         await send(host, "ROUND_RESULT", result("during-sim"))
         await read_until(host, "SCOREBOARD")
-        assert hub.storage.state["session"]["ASIA"] == 1
-        assert hub.storage.state["allTime"]["ASIA"] == 0
+        assert hub.storage.state["session"]["JAWA"] == 1
+        assert hub.storage.state["allTime"]["JAWA"] == 0
 
         await send(host, "SIM_TOGGLE", {"on": False})
         await asyncio.sleep(0.05)
         await send(host, "ROUND_RESULT", result("after-sim-mixed"))
         await asyncio.sleep(0.05)
-        assert hub.storage.state["allTime"]["ASIA"] == 0, "ronde saat bot baru dimatikan masih tercampur"
+        assert hub.storage.state["allTime"]["JAWA"] == 0, "ronde saat bot baru dimatikan masih tercampur"
 
         await send(host, "ROUND_RESULT", result("clean"))
         await asyncio.sleep(0.05)
-        assert hub.storage.state["allTime"]["ASIA"] == 1
+        assert hub.storage.state["allTime"]["JAWA"] == 1
 
         await send(host, "ROUND_RESULT", {**result("local-bot"), "simulated": True})
         await asyncio.sleep(0.05)
-        assert hub.storage.state["allTime"]["ASIA"] == 1
+        assert hub.storage.state["allTime"]["JAWA"] == 1
 
     run(scenario, tmp_path, wilayah, moderator, has_tiktok=True)
 
@@ -299,7 +299,7 @@ def test_malformed_messages_are_ignored(tmp_path, wilayah, moderator):
         await host.send_str(json.dumps({"type": "HELLO", "data": [1, 2]}))
         await send(host, "ROUND_RESULT", result("ok"))
         board = await read_until(host, "SCOREBOARD")
-        assert board["data"]["session"]["ASIA"] == 1
+        assert board["data"]["session"]["JAWA"] == 1
 
     run(scenario, tmp_path, wilayah, moderator)
 
@@ -309,7 +309,7 @@ def test_http_routes(tmp_path, wilayah, moderator):
         config = await client.get("/config.json")
         assert (await config.json())["grid"]["cols"] == CONFIG["grid"]["cols"]
         data = await client.get("/wilayah.json")
-        assert len(json.loads(await data.text())["countries"]) >= 100
+        assert len(json.loads(await data.text())["provinces"]) == 27
         index = await client.get("/")
         assert index.status == 200
         traversal = await client.get("/../config.json")

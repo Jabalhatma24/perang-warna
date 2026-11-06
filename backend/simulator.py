@@ -4,6 +4,8 @@ from __future__ import annotations
 import asyncio
 import random
 
+from parser import normalize, province_aliases
+
 RATES = {
     # gift_chance: peluang gift dalam 10% kejadian sisa setelah chat/like/follow.
     "low": {"bots": 25, "events_per_second": 4, "gift_chance": 0.5},
@@ -12,15 +14,17 @@ RATES = {
 }
 
 NAMES = [
-    "Budi", "Sari", "Dewi", "Yuki", "Min", "Wei", "Jose", "Maria", "John", "Emma", "Liam", "Hans",
-    "Pierre", "Sofia", "Ahmed", "Fatima", "Omar", "Kofi", "Amara", "Zola", "Tane", "Mia", "Lucas", "Ana",
+    "Budi", "Sari", "Dewi", "Agus", "Rina", "Ucok", "Butet", "Asep", "Neng", "Daeng", "Ani", "Wayan",
+    "Ikhsan", "Fitri", "Ahmad", "Siti", "Putu", "Rizky", "Intan", "Bayu", "Yogi", "Mega", "Andi", "Ayu",
 ]
 RUDE_NAMES = ["anj1ng_77", "fuck_y0u", "b1tch_99"]
+# Obrolan biasa yang tidak boleh memindahkan pulau: kata umum yang juga nama kota, ejekan, dan daerah di luar 4 pulau.
 CHATTER = [
-    "wkwkwk", "lol", "nice", "let's go", "hello everyone", "i love it", "in my country", "it is us",
-    "japan vs usa", "so cool", "no way", "seru banget", "aku 2 kali", "cuba lagi", "french fries",
+    "wkwkwk", "mantap", "seru banget", "halo semua", "keren bang", "aku 2 kali", "cuba lagi", "nasib malang",
+    "di medan perang", "padang rumput", "solo karir", "jawa vs sumatera", "sumatera cupu", "kalimantan lemah",
+    "salam dari bali", "papua hadir", "bukan kaleng kaleng",
 ]
-RALLY = ["gas", "GASSS", "rush", "RUSH!!", "gas terus", "rush them"]
+RALLY = ["gas", "GASSS", "gaskeun", "serbu", "SERBUUU!!", "gas terus", "rush"]
 MICRO_GIFTS = [(5655, "Rose", 1), (7934, "Heart Me", 1), (6064, "GG", 1), (5827, "Finger Heart", 5)]
 MID_GIFTS = [(5269, "TikTok", 10), (6104, "Hat", 30), (5879, "Donut", 30), (6427, "Perfume", 20)]
 SULTAN_GIFTS = [(5585, "Confetti", 100), (6369, "Lion Cub", 299), (6148, "Ship", 500)]
@@ -46,16 +50,16 @@ class Simulator:
         self.bots = [self._make_bot(index) for index in range(self.settings["bots"])]
 
     def _collect_aliases(self) -> dict[str, list[str]]:
-        # Kode pendek dilewati: _join_text menambahkan huruf dan tanda baca, sedangkan kode hanya sah sendirian.
+        # Kode pendek dan kata umum dilewati: _join_text menambahkan kata lain, sedangkan keduanya hanya sah sendirian.
         def usable(alias: str) -> bool:
-            return len(alias) > 2 and alias.lower() not in ambiguous
+            return len(alias) > 2 and normalize(alias) not in ambiguous
 
         ambiguous = {" ".join(key) for key in self.wilayah.ambiguous}
         aliases: dict[str, list[str]] = {}
         for kubu in self.wilayah.kubu:
             aliases[kubu["code"]] = [str(kubu["no"]), *filter(usable, kubu.get("aliases", []))]
-        for country in self.wilayah.countries:
-            aliases[country["kubu"]].extend(filter(usable, [country["name"], *country.get("aliases", [])]))
+        for province in self.wilayah.provinces:
+            aliases[province["kubu"]].extend(filter(usable, province_aliases(province)))
         return aliases
 
     def _make_bot(self, index: int) -> dict:
@@ -71,12 +75,20 @@ class Simulator:
         }
 
     def _join_text(self, bot: dict) -> str:
+        """Gaya chat asli: angka, huruf kapital, huruf terakhir dipanjangkan, atau absen "hadir dari ..."."""
         alias = self.rng.choice(self.aliases_by_team[bot["team"]])
+        if alias.isdigit():
+            return alias
         roll = self.rng.random()
         if roll < 0.2:
             return alias.upper() + "!!"
         if roll < 0.35:
-            return alias + "aaaa 🔥" if alias[-1].isalpha() else alias
+            stretched = alias + alias[-1] * 3
+            # "pss" + "sss" diringkas menjadi "ps", jadi hanya dipanjangkan kalau tetap terbaca sama.
+            if normalize(stretched) == normalize(alias):
+                return stretched + " 🔥"
+        elif roll < 0.5:
+            return f"hadir dari {alias}"
         return alias
 
     def _begin_gift(self, bot: dict, pool: list, streak_length: int) -> None:

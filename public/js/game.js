@@ -24,14 +24,14 @@ const W = 1080;
 const H = 1920;
 const FONT = 'system-ui, -apple-system, "Segoe UI", Roboto, "Noto Sans", sans-serif';
 const TAU = Math.PI * 2;
-// Harus sama dengan jumlah kubu di data/wilayah.json: 4 benua dengan pengguna TikTok terbanyak.
+// Harus sama dengan jumlah kubu di data/wilayah.json: 4 pulau besar Nusantara.
 const TEAM_COUNT = 4;
 const CELL_EMPTY = 0;
 const COLOR_WHITE = TEAM_COUNT;
 const COLOR_GOLD = TEAM_COUNT + 1;
 const COLOR_COUNT = TEAM_COUNT + 2;
 const PHASE_LABEL = {
-  PREP: 'PREPARATION', BATTLE: 'BATTLE', SUDDEN: 'SUDDEN DEATH', CROWN: 'VICTORY & CORONATION',
+  PREP: 'PERSIAPAN', BATTLE: 'PERANG', SUDDEN: 'SUDDEN DEATH', CROWN: 'PENOBATAN JUARA',
 };
 
 const HOST_KEY_STORAGE = 'pw.hostKey';
@@ -151,12 +151,13 @@ const LABEL_PAD = 4;
 const LABEL_MAX = 32;
 const labelRects = new Float32Array(LABEL_MAX * 4);
 let labelCount = 0;
-const countryIso = new Map();
+// Singkatan provinsi di samping nama prajurit, misalnya "Budi JATIM".
+const provinceTag = new Map();
 let emojiOk = true;
-let flagsOk = true;
 // Satu markas di tiap sudut arena: jarak dan wilayah alami tiap kubu sama persis.
-// Posisinya berputar searah jarum jam tiap ronde.
-const PERIMETER_ORDER = ['ASIA', 'EUROPE', 'NORTH_AMERICA', 'SOUTH_AMERICA'];
+// Ronde pertama mengikuti peta (Sumatera barat laut, Kalimantan timur laut, Sulawesi tenggara,
+// Jawa barat daya), lalu posisinya berputar searah jarum jam tiap ronde.
+const PERIMETER_ORDER = ['SUMATERA', 'KALIMANTAN', 'SULAWESI', 'JAWA'];
 const SLOT_POSITIONS = [[0, 0], [1, 0], [1, 1], [0, 1]];
 let perimeterTeams = [];
 let nextUnderdogAt = 0;
@@ -323,10 +324,10 @@ function setupTeams() {
     team.rgb = hexToRgb(team.color);
   });
   perimeterTeams = PERIMETER_ORDER.map((code) => teamIndex.get(code));
-  for (const country of wilayah.countries || []) countryIso.set(country.name, country.iso);
+  for (const province of wilayah.provinces || []) provinceTag.set(province.name, province.tag);
 }
 
-// Bendera dan emoji tidak tampil di semua perangkat (Windows menampilkan huruf), jadi diuji dulu.
+// Emoji tidak tampil di semua perangkat (Windows lama menampilkan kotak), jadi diuji dulu.
 function emojiRenders(text) {
   const c = makeCanvas(40, 40).getContext('2d', { willReadFrequently: true });
   c.font = `32px ${FONT}`;
@@ -339,11 +340,6 @@ function emojiRenders(text) {
     if (data[i + 3] > 100 && Math.max(data[i], data[i + 1], data[i + 2]) > 90) return true;
   }
   return false;
-}
-
-function flagOf(iso) {
-  if (!iso || iso.length !== 2) return '';
-  return String.fromCodePoint(...iso.toUpperCase().split('').map((ch) => 0x1f1e6 + ch.charCodeAt(0) - 65));
 }
 
 function setupLayout() {
@@ -819,11 +815,9 @@ function mergeOldest() {
   if (fallback) releaseSoldier(fallback);
 }
 
-// Satu baris saja: bendera (atau kode negara) lalu nama, supaya label kecil dan jarang bertabrakan.
-function labelText(viewer) {
-  const iso = viewer.country ? countryIso.get(viewer.country) : '';
-  if (!iso) return viewer.nick;
-  return flagsOk ? `${flagOf(iso)} ${viewer.nick}` : `${viewer.nick} ${iso.toUpperCase()}`;
+// Satu baris saja: nama lalu singkatan provinsi (gengsi daerah), supaya label kecil dan jarang bertabrakan.
+function labelTag(viewer) {
+  return viewer.province ? provinceTag.get(viewer.province) || '' : '';
 }
 
 function prepareLabel(soldier, viewer) {
@@ -839,15 +833,26 @@ function prepareLabel(soldier, viewer) {
   c.textAlign = 'center';
   c.textBaseline = 'middle';
   c.font = `800 24px ${FONT}`;
-  let text = labelText(viewer);
-  while (c.measureText(text).width > 228 && text.length > 4) text = `${text.slice(0, -2)}…`;
-  const width = Math.ceil(c.measureText(text).width);
+  // Singkatan provinsi tidak pernah dipotong; kalau tidak muat, nama yang dipendekkan.
+  const tag = labelTag(viewer);
+  const tagW = tag ? c.measureText(` ${tag}`).width : 0;
+  let text = viewer.nick;
+  while (c.measureText(text).width + tagW > 228 && text.length > 4) text = `${text.slice(0, -2)}…`;
+  const nickW = c.measureText(text).width;
+  const width = Math.ceil(nickW + tagW);
+  const left = 120 - width / 2;
+  c.textAlign = 'left';
   c.lineJoin = 'round';
   c.lineWidth = 4;
   c.strokeStyle = 'rgba(0,0,0,0.85)';
   c.fillStyle = '#ffffff';
-  c.strokeText(text, 120, LABEL_H / 2 + 1);
-  c.fillText(text, 120, LABEL_H / 2 + 1);
+  c.strokeText(text, left, LABEL_H / 2 + 1);
+  c.fillText(text, left, LABEL_H / 2 + 1);
+  if (tag) {
+    c.fillStyle = '#ffd25a';
+    c.strokeText(` ${tag}`, left + nickW, LABEL_H / 2 + 1);
+    c.fillText(` ${tag}`, left + nickW, LABEL_H / 2 + 1);
+  }
   soldier.labelW = Math.min(240, width + 8);
   soldier.labelReady = true;
 }
@@ -1094,7 +1099,7 @@ function updateParticles(dt) {
 // ======================================================================
 // Banner
 // ======================================================================
-// Warna pucat (separuh dicampur putih): tetap terbaca sebagai warna benua, tetapi cukup terang
+// Warna pucat (separuh dicampur putih): tetap terbaca sebagai warna pulau, tetapi cukup terang
 // supaya teks biru/merah tidak hancur oleh kompresi 4:2:0 di HP penonton.
 function brightText(color) {
   if (!/^#[0-9a-f]{6}$/i.test(color)) return color;
@@ -1126,32 +1131,36 @@ function shortName(team) {
 }
 
 // Host tidak bersuara, jadi game sendiri yang menjelaskan aturannya. Gift punya strip tetap sendiri.
+function joinText() {
+  return `Ketik 1-${TEAM_COUNT} atau nama kotamu untuk bergabung!`;
+}
+
 function buildTips() {
   const { rallySoldiers, spiritSoldiers } = cfg.gameplay;
-  const join = `Type 1-${TEAM_COUNT} or your Country to join!`;
+  const join = joinText();
   return [
     join,
-    'Biggest color when time runs out wins +1 WIN',
-    `Ketik angka 1-${TEAM_COUNT} atau nama negaramu untuk ikut!`,
-    'Any comment: your troop dashes',
-    `Type 'gas' or 'rush' to charge with ${rallySoldiers} extra troops!`,
+    'Warna terluas saat waktu habis menang +1 WIN',
+    'Contoh: bandung, medan, pontianak, makassar',
+    'Komentar apa saja: prajuritmu melesat',
+    `Ketik gas atau serbu: ${rallySoldiers} prajurit ikut menyerbu!`,
     join,
-    `Tap the screen: fill the Spirit Bar, full = ${spiritSoldiers} troops`,
-    'Ketik gas atau rush untuk menyerbu!',
-    'Follow or share: your troop becomes a Captain',
+    'Plat nomor juga bisa: plat B, plat BK, plat KT, plat DD',
+    `Ketuk layar: isi Bar Semangat, penuh = ${spiritSoldiers} prajurit`,
+    'Follow atau share: prajuritmu jadi Kapten',
     join,
-    'Troop down? Comment again to respawn',
-    'Smaller continents get an Underdog boost: bigger and faster troops',
-    'Top gifter of the winning continent becomes MVP',
-    'Warna terluas saat waktu habis menang, dapat +1 WIN',
+    'Prajurit gugur? Komentar lagi untuk bangkit',
+    'Pulau tertinggal dapat bonus Underdog: lebih besar & cepat',
+    'Penyawer terbesar pulau pemenang jadi MVP',
+    'Bela pulaumu! Ajak teman sedaerah ikut perang',
   ];
 }
 
 function currentTip() {
-  if (phase === 'PREP') return 'Switch continent? Type another number, Preparation only';
-  if (phase === 'OVERTIME') return `OVERTIME: ${cfg.gift.overtimeMultiplier}X GIFT BOOST!`;
-  if (phase === 'SUDDEN') return 'SUDDEN DEATH: too close to call, grab the last territory!';
-  if (phase === 'CROWN') return 'New round soon. Get your number ready!';
+  if (phase === 'PREP') return 'Mau pindah pulau? Ketik angka lain, hanya saat Persiapan';
+  if (phase === 'OVERTIME') return `WAKTU TAMBAHAN: GIFT ${cfg.gift.overtimeMultiplier}X LIPAT!`;
+  if (phase === 'SUDDEN') return 'SUDDEN DEATH: skor tipis, rebut wilayah terakhir!';
+  if (phase === 'CROWN') return 'Ronde baru segera. Siapkan angka pulaumu!';
   return tips[tipIndex];
 }
 
@@ -1164,10 +1173,10 @@ function flashGift(tier, now) {
 function giftTiles() {
   const { MID, SULTAN, MEGA } = cfg.gift.tiers;
   return [
-    { icon: '🌹', color: '#ff5d8f', coins: '1 coin', effect: `+${cfg.gift.microTroopsPerCoin} troops` },
-    { icon: '🍩', color: '#ff9f2e', coins: `${MID}+ coins`, effect: 'Giant Titan' },
-    { icon: '☄️', color: '#b57bff', coins: `${SULTAN}+ coins`, effect: 'Meteor' },
-    { icon: '👑', color: '#ffd25a', coins: `${MEGA}+ coins`, effect: 'Takeover' },
+    { icon: '🌹', color: '#ff5d8f', coins: '1 koin', effect: `+${cfg.gift.microTroopsPerCoin} prajurit` },
+    { icon: '🍩', color: '#ff9f2e', coins: `${MID}+ koin`, effect: 'Titan Raksasa' },
+    { icon: '☄️', color: '#b57bff', coins: `${SULTAN}+ koin`, effect: 'Meteor' },
+    { icon: '👑', color: '#ffd25a', coins: `${MEGA}+ koin`, effect: 'Ambil Alih' },
   ];
 }
 
@@ -1286,18 +1295,18 @@ function renderBanner(now) {
 function getViewer(user) {
   let viewer = viewers.get(user.id);
   if (!viewer) {
-    viewer = { id: user.id, nick: user.nick, team: -1, country: null, soldier: null, round: 0, lastAction: 0, coins: 0 };
+    viewer = { id: user.id, nick: user.nick, team: -1, province: null, soldier: null, round: 0, lastAction: 0, coins: 0 };
     viewers.set(user.id, viewer);
   }
   viewer.nick = user.nick;
   return viewer;
 }
 
-function joinRound(viewer, team, country, now) {
+function joinRound(viewer, team, province, now) {
   viewer.team = team;
   viewer.round = round;
   viewer.coins = 0;
-  if (country) viewer.country = country;
+  if (province) viewer.province = province;
   viewer.lastAction = now;
   viewer.soldier = null;
 }
@@ -1308,7 +1317,7 @@ function ensureSoldier(viewer, now) {
 
 function handleChat(message, now) {
   if (phase === 'CROWN') return;
-  const { action, team: code, country } = message.data;
+  const { action, team: code, province } = message.data;
   const team = teamIndex.get(code);
   if (team === undefined || !message.user) return;
   const viewer = getViewer(message.user);
@@ -1319,7 +1328,7 @@ function handleChat(message, now) {
       // Pindah kubu hanya sah di fase Persiapan.
       if (viewer.soldier) releaseSoldier(viewer.soldier);
       viewer.team = team;
-      viewer.country = country;
+      viewer.province = province;
       viewer.lastAction = now;
       ensureSoldier(viewer, now);
       sfx('join', team);
@@ -1330,15 +1339,15 @@ function handleChat(message, now) {
       ensureSoldier(viewer, now);
       return;
     }
-    joinRound(viewer, team, country, now);
-    viewer.country = country;
+    joinRound(viewer, team, province, now);
+    viewer.province = province;
     ensureSoldier(viewer, now);
     sfx('join', team);
     return;
   }
 
   // Keputusan #2: kubu ronde ini mengikuti catatan frontend, bukan kubu terakhir di backend.
-  if (!isMember) joinRound(viewer, team, null, now);
+  if (!isMember) joinRound(viewer, team, province, now);
   viewer.lastAction = now;
   const soldier = ensureSoldier(viewer, now);
   if (!fighting() || !soldier) return;
@@ -1363,8 +1372,17 @@ function handleChat(message, now) {
 
 function roundTopLiker() {
   let best = null;
-  for (const entry of roundLikes.values()) if (!best || entry.likes > best.likes) best = entry;
-  return best ? { nick: best.nick, likes: best.likes } : null;
+  let bestId = '';
+  for (const [id, entry] of roundLikes) {
+    if (!best || entry.likes > best.likes) {
+      best = entry;
+      bestId = id;
+    }
+  }
+  if (!best) return null;
+  const viewer = viewers.get(bestId);
+  const team = viewer && viewer.round === round ? viewer.team : -1;
+  return { nick: best.nick, likes: best.likes, team };
 }
 
 function handleLikes(message) {
@@ -1395,7 +1413,7 @@ function checkSpirit(now) {
     for (let i = 0; i < cfg.gameplay.spiritSoldiers; i += 1) spawnSoldier(team, null, false, now);
     spawnParticles(baseX[team], baseY[team], team, 24, 320, 0.7);
     sfx('wave', team);
-    showBanner(`${teams[team].name} Spirit Bar full!`, teams[team].color, 1.8, 1, now);
+    showBanner(`Bar Semangat ${teams[team].name} penuh!`, teams[team].color, 1.8, 1, now);
   }
 }
 
@@ -1413,7 +1431,7 @@ function handleCaptain(message, now) {
     spawnParticles(soldier.x, soldier.y, COLOR_GOLD, 12, 200, 0.5);
   }
   sfx('captain');
-  showBanner(`${viewer.nick} promoted to Captain`, '#ffd25a', 1.6, 1, now);
+  showBanner(`${viewer.nick} naik jadi Kapten`, '#ffd25a', 1.6, 1, now);
 }
 
 // ======================================================================
@@ -1451,7 +1469,7 @@ function handleGift(message, now) {
     deferredGifts.push({ viewer, team, data });
   }
   sfx('coin', -1, 1);
-  showBanner(`${viewer.nick}: ${data.giftName}, activates when battle starts`, '#ffd25a', 2, 1, now);
+  showBanner(`${viewer.nick}: ${data.giftName}, aktif saat perang dimulai`, '#ffd25a', 2, 1, now);
 }
 
 function applyGift(viewer, team, data, now) {
@@ -1466,14 +1484,14 @@ function applyGift(viewer, team, data, now) {
     giftMicro(viewer, team, data, multiplier, now);
   } else if (data.tier === 'MID') {
     giftMid(viewer, team, data, multiplier, now);
-    showBanner(`${viewer.nick} • ${data.giftName} • Giant Titan!`, color, 2.2, 2, now);
+    showBanner(`${viewer.nick} • ${data.giftName} • Titan Raksasa!`, color, 2.2, 2, now);
   } else if (data.tier === 'SULTAN') {
     const target = launchMeteor(team, data.coins, multiplier, now);
     const targetName = target >= 0 ? teams[target].name : 'arena';
-    showBanner(`${viewer.nick} • ${data.giftName} • Meteor on ${targetName}!`, color, 3, 3, now);
+    showBanner(`${viewer.nick} • ${data.giftName} • Meteor ke ${targetName}!`, color, 3, 3, now);
   } else {
     startTakeover(viewer, team, data.coins, multiplier, now);
-    showBanner(`${viewer.nick} • ${data.giftName} • TAKEOVER + SHIELD!`, '#ffd25a', 4, 4, now);
+    showBanner(`${viewer.nick} • ${data.giftName} • AMBIL ALIH + PERISAI!`, '#ffd25a', 4, 4, now);
   }
 }
 
@@ -1598,7 +1616,7 @@ function impactMeteor(x, y, team, target, frac, now) {
 function triggerRevenge(team, now) {
   revengeUntil[team] = now + cfg.gift.revengeSeconds;
   sfx('revenge');
-  showBanner(`REVENGE ${teams[team].name}: gift effects x${cfg.gift.revengeMultiplier}`, teams[team].color, 2.4, 2, now);
+  showBanner(`BALAS DENDAM ${teams[team].name}: efek gift x${cfg.gift.revengeMultiplier}`, teams[team].color, 2.4, 2, now);
 }
 
 function startTakeover(viewer, team, coins, multiplier, now) {
@@ -1743,7 +1761,7 @@ function checkRage(now) {
       rageUntil[team] = now + r.seconds;
       rageReadyAt[team] = now + r.seconds + r.cooldownSeconds;
       sfx('rage', team);
-      showBanner(`RAGE MODE: ${teams[team].name} surges!`, teams[team].color, 2.2, 2, now);
+      showBanner(`MODE AMUK: ${teams[team].name} menggila!`, teams[team].color, 2.2, 2, now);
     }
   }
 }
@@ -1803,7 +1821,7 @@ function enterBattle(now) {
   }
   sfx('start');
   Audio.setMusicIntensity(1);
-  showBanner('BATTLE BEGINS!', '#ffffff', 1.8, 2, now);
+  showBanner('PERANG DIMULAI!', '#ffffff', 1.8, 2, now);
   flushDeferredGifts(now);
 }
 
@@ -1854,7 +1872,9 @@ function enterCrown(now) {
   const streak = scoreboard ? scoreboard.streak : { team: null, count: 0 };
   const breaksStreak = winnerCode !== null && streak.count >= 3 && streak.team !== winnerCode;
   const nextCount = winnerCode !== null && streak.team === winnerCode ? streak.count + 1 : 1;
-  crownResult = { winner: winnerIndex, mvp, territory, breaksStreak, crown: nextCount === 3, topLiker: roundTopLiker() };
+  crownResult = {
+    winner: winnerIndex, mvp, territory, breaksStreak, crown: nextCount === 3, streak: nextCount, topLiker: roundTopLiker(),
+  };
 
   const result = {
     roundId: `${bootId}-${round}`,
@@ -1873,10 +1893,10 @@ function enterCrown(now) {
     crownMvpAt = mvp ? now + 2.2 : 0;
     if (crownResult.breaksStreak) {
       sfx('streakBreak');
-      showBanner(`STREAK BREAKER: ${teams[winnerIndex].name}!`, teams[winnerIndex].color, 5, 4, now);
+      showBanner(`PEMATAH STREAK: ${teams[winnerIndex].name}!`, teams[winnerIndex].color, 5, 4, now);
     } else if (crownResult.crown) {
       sfx('crown');
-      showBanner(`${teams[winnerIndex].name} 3 wins in a row: CROWN!`, '#ffd25a', 5, 4, now);
+      showBanner(`${teams[winnerIndex].name} menang 3x beruntun: MAHKOTA!`, '#ffd25a', 5, 4, now);
     }
     nextFireworkAt = now;
   } else {
@@ -1914,7 +1934,7 @@ function updatePhase(now) {
     setPhase('OVERTIME', cfg.phases.overtime);
     sfx('overtime');
     Audio.setMusicIntensity(2);
-    showBanner(`OVERTIME: ${cfg.gift.overtimeMultiplier}X GIFT BOOST!`, '#ff5a4d', 2.4, 3, now);
+    showBanner(`WAKTU TAMBAHAN: GIFT ${cfg.gift.overtimeMultiplier}X LIPAT!`, '#ff5a4d', 2.4, 3, now);
   } else if (phase === 'OVERTIME') {
     if (!suddenUsed && (debugForceSudden || topTwoGap() < cfg.suddenDeath.threshold)) {
       suddenUsed = true;
@@ -1965,7 +1985,7 @@ function onMessage(message) {
       break;
     case 'VIEW_FULL':
       net.stop();
-      showNotice('Spectator seats are full.', false);
+      showNotice('Kursi penonton sudah penuh.', false);
       break;
     case 'STATE_SNAPSHOT':
       if (role === 'view') applySnapshot(message.data);
@@ -2119,15 +2139,25 @@ function formatCount(value) {
 }
 
 // Baris teratas: Top Likes selama live. Sebelum ada like, judul game yang tampil.
-// Nama selalu putih; warna benua cukup di titik kecil, karena teks merah/biru kabur setelah kompresi video.
-const DOT = 18;
+// Nama selalu putih; pulau ditandai chip berwarna berisi singkatan putih (JW, SM, KL, SL),
+// karena teks merah/biru di atas latar gelap kabur setelah kompresi video.
+const CHIP_PAD = 7;
 
-function segmentWidth(c, seg) {
-  return seg.dot ? DOT : c.measureText(seg.text).width;
+function chipFont(size) {
+  return `800 ${Math.round(size * 0.72)}px ${FONT}`;
+}
+
+function segmentWidth(c, seg, size) {
+  if (!seg.chip) return c.measureText(seg.text).width;
+  const font = c.font;
+  c.font = chipFont(size);
+  const width = c.measureText(seg.chip.label).width + CHIP_PAD * 2;
+  c.font = font;
+  return width;
 }
 
 function segmentsWidth(c, segments, size) {
-  return segments.reduce((sum, seg, i) => sum + segmentWidth(c, seg) + (i < segments.length - 1 ? seg.gap * size / 30 : 0), 0);
+  return segments.reduce((sum, seg, i) => sum + segmentWidth(c, seg, size) + (i < segments.length - 1 ? seg.gap * size / 30 : 0), 0);
 }
 
 function drawTopLikes(c, y) {
@@ -2135,7 +2165,7 @@ function drawTopLikes(c, y) {
   topLikes.forEach((entry, index) => {
     const team = entry.team ? teamIndex.get(entry.team) : undefined;
     segments.push({ text: `${index + 1}.`, color: '#ffd25a', gap: 8 });
-    if (team !== undefined) segments.push({ dot: teams[team].color, gap: 7 });
+    if (team !== undefined) segments.push({ chip: teams[team], gap: 8 });
     segments.push({ text: entry.nick, nick: entry.nick, color: '#ffffff', gap: 9 });
     segments.push({ text: formatCount(entry.likes), color: '#ffd25a', gap: 24 });
   });
@@ -2157,19 +2187,26 @@ function drawTopLikes(c, y) {
   let x = (W - segmentsWidth(c, segments, size)) / 2;
   c.textAlign = 'left';
   segments.forEach((seg, i) => {
-    if (seg.dot) {
-      c.beginPath();
-      c.arc(x + DOT / 2, y, DOT / 2, 0, TAU);
-      c.fillStyle = seg.dot;
+    const segW = segmentWidth(c, seg, size);
+    if (seg.chip) {
+      const chipH = Math.round(size * 0.92);
+      roundedRect(c, x, y - chipH / 2, segW, chipH, 7);
+      c.fillStyle = seg.chip.color;
       c.fill();
-      c.lineWidth = 3;
-      c.strokeStyle = '#ffffff';
+      c.lineWidth = 2;
+      c.strokeStyle = 'rgba(0,0,0,0.75)';
       c.stroke();
+      c.font = chipFont(size);
+      c.textAlign = 'center';
+      c.fillStyle = '#ffffff';
+      outlinedText(c, seg.chip.label, x + segW / 2, y + 1, 3);
+      c.font = `800 ${size}px ${FONT}`;
+      c.textAlign = 'left';
     } else {
       c.fillStyle = seg.color;
       outlinedText(c, seg.text, x, y, 5);
     }
-    x += segmentWidth(c, seg) + (i < segments.length - 1 ? seg.gap * size / 30 : 0);
+    x += segW + (i < segments.length - 1 ? seg.gap * size / 30 : 0);
   });
 }
 
@@ -2184,12 +2221,12 @@ function renderTitle() {
     drawTopLikes(c, height * 0.36);
   } else {
     c.fillStyle = '#ffd25a';
-    fitFont(c, 'CONTINENTAL WAR', W - safeX * 2, 42, 800, 28);
-    outlinedText(c, 'CONTINENTAL WAR', W / 2, height * 0.36, 5);
+    fitFont(c, 'PERANG PULAU NUSANTARA', W - safeX * 2, 42, 800, 28);
+    outlinedText(c, 'PERANG PULAU NUSANTARA', W / 2, height * 0.36, 5);
   }
   c.textAlign = 'center';
   c.fillStyle = '#ffffff';
-  const join = `Type 1-${TEAM_COUNT} or your Country to join!`;
+  const join = joinText();
   fitFont(c, join, W - safeX * 2, 30, 800, 24);
   outlinedText(c, join, W / 2, height * 0.76, 4);
 }
@@ -2212,14 +2249,14 @@ function renderHud(now) {
   const timerText = formatTime(phaseLeft);
   outlinedText(c, timerText, left, rowY);
   const timerWidth = c.measureText(timerText).width;
-  const phaseLabel = phase === 'OVERTIME' ? `OVERTIME ${cfg.gift.overtimeMultiplier}X GIFT` : PHASE_LABEL[phase] || '';
+  const phaseLabel = phase === 'OVERTIME' ? `WAKTU TAMBAHAN • GIFT ${cfg.gift.overtimeMultiplier}X` : PHASE_LABEL[phase] || '';
   fitFont(c, phaseLabel, 330, 26, 800, 20);
   outlinedText(c, phaseLabel, left + timerWidth + 14, rowY, 3);
 
   c.textAlign = 'right';
   c.fillStyle = '#e4e7f5';
   c.font = `800 24px ${FONT}`;
-  outlinedText(c, `Round ${round} • ${viewerCount} viewers`, right - 30, rowY, 3);
+  outlinedText(c, `Ronde ${round} • ${viewerCount} penonton`, right - 30, rowY, 3);
   c.beginPath();
   c.arc(right - 10, rowY, 9, 0, TAU);
   c.fillStyle = status.connected ? '#34c759' : '#ff3b30';
@@ -2354,7 +2391,7 @@ function renderKlasemen() {
   c.textAlign = 'center';
   c.fillStyle = '#ffd25a';
   c.font = `800 26px ${FONT}`;
-  c.fillText('ALL-TIME RANKING', leftCx, panel.y + 26);
+  c.fillText('KLASEMEN ABADI', leftCx, panel.y + 26);
   const allTime = scoreboard ? scoreboard.allTime : {};
   const ordered = teams
     .map((team, index) => ({ team, index, wins: allTime[team.code] || 0 }))
@@ -2390,8 +2427,8 @@ function renderKlasemen() {
   const hall = scoreboard ? scoreboard.hallOfFame : [];
   c.fillStyle = '#ffffff';
   if (hall.length === 0) {
-    fitFont(c, 'No MVP yet. Be the first!', panel.w - half - 24, 24, 700, 20);
-    c.fillText('No MVP yet. Be the first!', rightCx, panel.y + 80);
+    fitFont(c, 'Jadilah MVP pertama!', panel.w - half - 24, 24, 700, 20);
+    c.fillText('Jadilah MVP pertama!', rightCx, panel.y + 80);
     return;
   }
   hall.slice(0, 5).forEach((entry, index) => {
@@ -2402,7 +2439,7 @@ function renderKlasemen() {
     c.fillText(nick, rightCx, y);
     c.fillStyle = '#c4c9de';
     c.font = `700 20px ${FONT}`;
-    c.fillText(`${entry.coins} coins`, rightCx, y + 23);
+    c.fillText(`${entry.coins} koin`, rightCx, y + 23);
   });
 }
 
@@ -2413,13 +2450,13 @@ function renderHowTo() {
   const width = panel.w - 32;
   c.textAlign = 'center';
   c.fillStyle = '#ffd25a';
-  fitFont(c, 'HOW TO PLAY', width, 30);
-  c.fillText('HOW TO PLAY', W / 2, panel.y + 26);
+  fitFont(c, 'CARA MAIN', width, 30);
+  c.fillText('CARA MAIN', W / 2, panel.y + 26);
   const lines = [
-    ['#ffffff', `Type 1-${TEAM_COUNT} or your Country to join!`],
-    ['#ffffff', "Type 'gas' or 'rush' to charge!"],
-    ['#ffffff', `Comment = dash • Tap = ${spiritSoldiers} troops`],
-    ['#ffd25a', 'Biggest color when time runs out wins!'],
+    ['#ffffff', joinText()],
+    ['#ffffff', "Ketik 'gas' atau 'serbu' untuk menyerbu!"],
+    ['#ffffff', `Komentar = melesat • Ketuk = ${spiritSoldiers} prajurit`],
+    ['#ffd25a', 'Warna terluas saat waktu habis menang!'],
   ];
   const step = (panel.h - 52) / lines.length;
   lines.forEach(([color, line], index) => {
@@ -2449,18 +2486,20 @@ function renderCrownOverlay() {
   if (!crownResult || crownResult.winner < 0) {
     c.fillStyle = '#ffffff';
     c.font = `800 52px ${FONT}`;
-    c.fillText('No winner yet', W / 2, visibleH / 2 - 28);
+    c.fillText('Belum ada pemenang', W / 2, visibleH / 2 - 28);
     c.font = `600 30px ${FONT}`;
-    c.fillText(`Type 1-${TEAM_COUNT} for the next round`, W / 2, visibleH / 2 + 30);
+    c.fillText(`Ketik 1-${TEAM_COUNT} untuk ronde berikutnya`, W / 2, visibleH / 2 + 30);
     return;
   }
   const team = teams[crownResult.winner];
   c.drawImage(crownSprite, W / 2 - 50, 12, 100, 72);
   c.fillStyle = team.color;
-  fitFont(c, team.name, width, 64, 800, 36);
-  outlinedText(c, team.name, W / 2, 124, 8);
+  const title = `PULAU ${team.name.toUpperCase()}`;
+  fitFont(c, title, width, 64, 800, 36);
+  outlinedText(c, title, W / 2, 124, 8);
   c.fillStyle = '#ffffff';
-  const victory = `VICTORY +1 WIN • ${crownResult.territory[team.code]}%`;
+  const streakNote = crownResult.streak >= 2 ? ` • ${crownResult.streak}X BERUNTUN` : '';
+  const victory = `JUARA +1 WIN • ${crownResult.territory[team.code]}%${streakNote}`;
   fitFont(c, victory, width, 36, 800, 26);
   c.fillText(victory, W / 2, 182);
 
@@ -2471,7 +2510,7 @@ function renderCrownOverlay() {
     c.fillText(mvp, W / 2, 236);
     c.fillStyle = '#ffffff';
     c.font = `700 26px ${FONT}`;
-    c.fillText(`${crownResult.mvp.coins} coins`, W / 2, 272);
+    c.fillText(`${crownResult.mvp.coins} koin`, W / 2, 272);
   }
   const hall = scoreboard ? scoreboard.hallOfFame : [];
   if (hall.length > 0) {
@@ -2485,7 +2524,9 @@ function renderCrownOverlay() {
   }
   // Penonton yang tidak menyawer juga punya alasan untuk disebut.
   if (crownResult.topLiker) {
-    const liker = `♥ Top Liker: ${crownResult.topLiker.nick} • ${formatCount(crownResult.topLiker.likes)} likes`;
+    const { nick, likes, team: likerTeam } = crownResult.topLiker;
+    const from = likerTeam >= 0 ? ` (${teams[likerTeam].name})` : '';
+    const liker = `♥ Top Liker: ${nick}${from} • ${formatCount(likes)} like`;
     c.fillStyle = '#ff5d8f';
     fitFont(c, liker, width, 30, 800, 22);
     outlinedText(c, liker, W / 2, 404, 5);
@@ -2520,7 +2561,7 @@ function ensurePrasasti() {
   const key = names.join('|');
   if (key === prasastiKey) return;
   prasastiKey = key;
-  const text = `SULTAN WALL • ${names.join(' • ')} •`;
+  const text = `PRASASTI SULTAN • ${names.join(' • ')} •`;
   const measure = bannerCtx;
   measure.font = `800 42px ${FONT}`;
   const width = Math.min(4000, Math.ceil(measure.measureText(text).width) + 80);
@@ -2944,7 +2985,6 @@ function updateDebug(now) {
     topLikes,
     zones: { baseSize, safeX, titleTop, hudTop, arenaTop, arenaH, visibleH, bannerTop, bannerH, decoTop },
     emojiOk,
-    flagsOk,
   };
 }
 
@@ -3132,9 +3172,9 @@ function setupStartScreen() {
   let soundOn = true;
   soundBtn.addEventListener('click', () => {
     soundOn = !soundOn;
-    soundBtn.textContent = soundOn ? '🔊 Sound on' : '🔇 Start muted';
+    soundBtn.textContent = soundOn ? '🔊 Suara nyala' : '🔇 Tanpa suara';
     soundBtn.setAttribute('aria-pressed', String(soundOn));
-    soundBtn.setAttribute('aria-label', soundOn ? 'Start with sound' : 'Start muted');
+    soundBtn.setAttribute('aria-label', soundOn ? 'Mulai dengan suara' : 'Mulai tanpa suara');
   });
   document.getElementById('startBtn').addEventListener('click', () => {
     Audio.init({ muted: !soundOn });
@@ -3162,7 +3202,6 @@ async function boot() {
   Audio.configure(cfg.audio);
   setupTeams();
   emojiOk = emojiRenders('🌹');
-  flagsOk = emojiRenders(flagOf('id'));
   setupLayout();
   setupGrid();
   tips = buildTips();

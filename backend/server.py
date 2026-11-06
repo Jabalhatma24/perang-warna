@@ -417,9 +417,10 @@ def resolve_host_key(cli_key: str | None, path: Path = HOST_KEY_FILE) -> str:
 
 
 def wins_path(simulate: bool) -> Path:
-    """Simulasi terpisah dari data asli. Klasemen benua juga terpisah dari wins.json lama milik
-    versi Nusantara, karena Storage membuang kode kubu yang tidak dikenal saat menyimpan."""
-    return DATA_DIR / ("wins.continental.sim.json" if simulate else "wins.continental.json")
+    """Simulasi terpisah dari data asli. Klasemen 4 pulau juga terpisah dari wins.json (7 wilayah
+    Nusantara) dan wins.continental.json (benua), karena Storage membuang kode kubu yang tidak
+    dikenal saat menyimpan: memakai berkas lama akan menghapus Win BALI_NUSRA, ASIA, dan lainnya."""
+    return DATA_DIR / ("wins.pulau4.sim.json" if simulate else "wins.pulau4.json")
 
 
 def pc_window_command(port: int, key: str) -> str:
@@ -466,7 +467,7 @@ def print_access_info(base: str, key: str, port: int) -> None:
 
 
 def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
-    parser = argparse.ArgumentParser(description="Continental War: Battle of Nations")
+    parser = argparse.ArgumentParser(description="Perang Pulau Nusantara: 4 Pulau Besar")
     source = parser.add_mutually_exclusive_group()
     source.add_argument("--simulate", action="store_true", help="jalankan bot penonton")
     source.add_argument("--username", help="akun TikTok yang sedang live, misal @akunku")
