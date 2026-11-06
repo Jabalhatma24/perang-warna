@@ -307,7 +307,7 @@ def test_malformed_messages_are_ignored(tmp_path, wilayah, moderator):
 def test_http_routes(tmp_path, wilayah, moderator):
     async def scenario(hub, client):
         config = await client.get("/config.json")
-        assert (await config.json())["grid"]["cols"] == 96
+        assert (await config.json())["grid"]["cols"] == CONFIG["grid"]["cols"]
         data = await client.get("/wilayah.json")
         assert len(json.loads(await data.text())["countries"]) >= 100
         index = await client.get("/")

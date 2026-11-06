@@ -31,7 +31,7 @@
     "paintRadius2At": 1.7,
     "badgeAt": 1.2
   },
-  "grid": { "cols": 96, "rows": 60 },
+  "grid": { "cols": 90, "rows": 56 },
   "limits": { "soldiers": 300, "particles": 800, "eventsPerFrame": 30, "queueMax": 4000 },
   "gameplay": {
     "soldierSpeed": 120,

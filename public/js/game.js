@@ -9,6 +9,16 @@ const DEBUG = params.get('debug') === '1';
 const PHASE_SPEED = Math.max(0.1, Number(params.get('speed')) || 1);
 // Khusus pengujian: ?baseSize=64 untuk membandingkan ukuran markas tanpa mengubah config.json.
 const TEST_BASE_SIZE = Number(params.get('baseSize')) || 0;
+// Kualitas adaptif hanya untuk HP yang menyiarkan layarnya sendiri. Di PC (TikTok LIVE Studio, OBS, Chrome)
+// FPS sering dibatasi 30 oleh aplikasi penangkapnya; menurunkan resolusi di sana tidak membuatnya lebih
+// cepat, hanya membuat siaran buram. Tautan dengan ?autostart=1, ?hq=1, atau ?studio=1 selalu dikunci 1.0.
+const IS_MOBILE = /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent);
+// ?adaptive=1 memaksa kualitas adaptif, untuk PC yang memang terlalu lemah menggambar 1080x1920.
+const LOCK_QUALITY = params.get('adaptive') === '1'
+  ? false
+  : !IS_MOBILE || ['autostart', 'hq', 'studio'].some((name) => params.get(name) === '1');
+// ?check=1 menampilkan ukuran kanvas besar-besar untuk memastikan sumber Link/Browser Source tepat 1080x1920.
+const CHECK = params.get('check') === '1';
 
 const W = 1080;
 const H = 1920;
@@ -136,7 +146,7 @@ const shieldUntil = new Float64Array(TEAM_COUNT);
 const spirit = new Float32Array(TEAM_COUNT);
 const activeMembers = new Int32Array(TEAM_COUNT);
 const mergeCounts = new Int32Array(TEAM_COUNT);
-const LABEL_H = 30;
+const LABEL_H = 32;
 const LABEL_PAD = 4;
 const LABEL_MAX = 32;
 const labelRects = new Float32Array(LABEL_MAX * 4);
@@ -339,15 +349,18 @@ function flagOf(iso) {
 function setupLayout() {
   const layout = cfg.layout;
   // Urutan dari atas: judul, papan skor, strip gift + pengumuman, arena, lalu hiasan.
+  // Batas zona dibulatkan ke piksel utuh: grid arena 90x56 lalu tepat 12 px per sel di 1080x1920,
+  // tanpa sel selang-seling 11/12 px yang bergerigi dan boros bitrate.
+  const at = (fraction) => Math.round(fraction * H);
   safeX = layout.safeX ?? 100;
-  titleTop = layout.titleTop * H;
-  hudTop = layout.hudTop * H;
-  hudH = (layout.bannerTop - layout.hudTop) * H;
-  bannerTop = layout.bannerTop * H;
-  bannerH = (layout.arenaTop - layout.bannerTop) * H;
-  arenaTop = layout.arenaTop * H;
-  arenaH = (layout.arenaEnd - layout.arenaTop) * H;
-  decoTop = layout.arenaEnd * H;
+  titleTop = at(layout.titleTop);
+  hudTop = at(layout.hudTop);
+  hudH = at(layout.bannerTop) - hudTop;
+  bannerTop = at(layout.bannerTop);
+  bannerH = at(layout.arenaTop) - bannerTop;
+  arenaTop = at(layout.arenaTop);
+  arenaH = at(layout.arenaEnd) - arenaTop;
+  decoTop = at(layout.arenaEnd);
   visibleH = clamp((layout.commentTop ?? layout.arenaEnd) * H - arenaTop, 300, arenaH);
   // Otomatis sekitar 11% dari sisi terpendek arena. Di bawah 64 px kodenya sulit dibaca setelah kompresi video.
   const autoSize = Math.min(W, arenaH) * 0.113;
@@ -461,9 +474,9 @@ function setupSprites() {
     c.lineWidth = 3;
     c.strokeStyle = '#07080f';
     c.stroke();
-    c.font = `800 26px ${FONT}`;
+    c.font = `800 30px ${FONT}`;
     c.fillStyle = '#07080f';
-    c.fillText(String(team.no), 98, 23);
+    c.fillText(String(team.no), 98, 24);
     return sprite;
   });
 
@@ -571,9 +584,12 @@ function resizeUiLayers() {
   overlayKind = '';
 }
 
+// Outline ikut besar huruf (sekitar 18%): kompresi video 4:2:0 mengikis tepi huruf berwarna di latar gelap.
 function outlinedText(c, text, x, y, width = 4) {
+  const size = Number(/(\d+(?:\.\d+)?)px/.exec(c.font)?.[1]) || 20;
   c.lineJoin = 'round';
-  c.lineWidth = width;
+  c.miterLimit = 2;
+  c.lineWidth = Math.max(width, Math.round(size * 0.18));
   c.strokeStyle = 'rgba(0,0,0,0.85)';
   c.strokeText(text, x, y);
   c.fillText(text, x, y);
@@ -646,7 +662,7 @@ function resize() {
 // Resolusi penuh lebih berat di HP. Kalau HP tidak sanggup, kualitas turun bertahap dan tidak naik lagi.
 function adaptQuality() {
   // Di OBS FPS mengikuti pengaturan OBS, jadi 30 FPS di sana bukan tanda kewalahan.
-  if (document.hidden || window.obsstudio || renderScale <= MIN_RENDER_SCALE) {
+  if (LOCK_QUALITY || document.hidden || window.obsstudio || renderScale <= MIN_RENDER_SCALE) {
     lowFpsSeconds = 0;
     return;
   }
@@ -822,7 +838,7 @@ function prepareLabel(soldier, viewer) {
   c.setTransform(scale, 0, 0, scale, 0, 0);
   c.textAlign = 'center';
   c.textBaseline = 'middle';
-  c.font = `700 21px ${FONT}`;
+  c.font = `800 24px ${FONT}`;
   let text = labelText(viewer);
   while (c.measureText(text).width > 228 && text.length > 4) text = `${text.slice(0, -2)}…`;
   const width = Math.ceil(c.measureText(text).width);
@@ -1078,10 +1094,19 @@ function updateParticles(dt) {
 // ======================================================================
 // Banner
 // ======================================================================
+// Warna pucat (separuh dicampur putih): tetap terbaca sebagai warna benua, tetapi cukup terang
+// supaya teks biru/merah tidak hancur oleh kompresi 4:2:0 di HP penonton.
+function brightText(color) {
+  if (!/^#[0-9a-f]{6}$/i.test(color)) return color;
+  const [r, g, b] = hexToRgb(color);
+  const mix = (channel) => Math.round(channel + (255 - channel) * 0.5);
+  return `rgb(${mix(r)},${mix(g)},${mix(b)})`;
+}
+
 function showBanner(text, color, seconds, priority, now = nowSeconds()) {
   if (now < bannerUntil && priority < bannerPriority) return;
   bannerText = text;
-  bannerColor = color;
+  bannerColor = brightText(color);
   bannerUntil = now + seconds;
   bannerPriority = priority;
   bannerDirty = true;
@@ -1141,8 +1166,8 @@ function giftTiles() {
   return [
     { icon: '🌹', color: '#ff5d8f', coins: '1 coin', effect: `+${cfg.gift.microTroopsPerCoin} troops` },
     { icon: '🍩', color: '#ff9f2e', coins: `${MID}+ coins`, effect: 'Giant Titan' },
-    { icon: '☄️', color: '#b57bff', coins: `${SULTAN}+ coins`, effect: 'Meteor strike' },
-    { icon: '👑', color: '#ffd25a', coins: `${MEGA}+ coins`, effect: 'Takeover + Shield' },
+    { icon: '☄️', color: '#b57bff', coins: `${SULTAN}+ coins`, effect: 'Meteor' },
+    { icon: '👑', color: '#ffd25a', coins: `${MEGA}+ coins`, effect: 'Takeover' },
   ];
 }
 
@@ -1182,29 +1207,30 @@ function drawGiftStrip(c, top, height) {
     roundedRect(c, x, top, tileW, height, 12);
     c.fillStyle = 'rgba(12,15,30,0.94)';
     c.fill();
-    c.lineWidth = 2;
+    c.lineWidth = 3;
     c.strokeStyle = tile.color;
     c.stroke();
+    // Teks putih: warna tingkat cukup di bingkai dan ikon, karena teks berwarna kabur setelah kompresi.
     let textX = x + 12;
     if (emojiOk) {
       c.textAlign = 'center';
-      c.font = `30px ${FONT}`;
-      c.fillText(tile.icon, x + 30, top + height / 2 + 1);
-      textX = x + 54;
+      c.font = `28px ${FONT}`;
+      c.fillText(tile.icon, x + 27, top + height / 2 + 1);
+      textX = x + 48;
     }
     c.textAlign = 'left';
     const textW = x + tileW - 8 - textX;
-    c.fillStyle = tile.color;
-    fitFont(c, tile.coins, textW, 21, 800, 14);
-    outlinedText(c, tile.coins, textX, top + height * 0.32, 3);
+    c.fillStyle = '#ffd25a';
+    fitFont(c, tile.coins, textW, 24, 800, 20);
+    outlinedText(c, tile.coins, textX, top + height * 0.28);
     c.fillStyle = '#ffffff';
-    fitFont(c, tile.effect, textW, 21, 800, 14);
-    outlinedText(c, tile.effect, textX, top + height * 0.7, 3);
+    fitFont(c, tile.effect, textW, 24, 800, 20);
+    outlinedText(c, tile.effect, textX, top + height * 0.73);
     if (boosted && index > 0) {
       const badge = `x${cfg.gift.overtimeMultiplier}`;
-      c.font = `800 18px ${FONT}`;
+      c.font = `800 22px ${FONT}`;
       const badgeW = c.measureText(badge).width + 14;
-      roundedRect(c, x + tileW - badgeW - 4, top - 10, badgeW, 24, 8);
+      roundedRect(c, x + tileW - badgeW - 4, top - 10, badgeW, 26, 8);
       c.fillStyle = '#ff3b30';
       c.fill();
       c.fillStyle = '#ffffff';
@@ -1243,11 +1269,11 @@ function renderBanner(now) {
   // Satu baris: pengumuman gift kalau ada, selain itu tips cara main.
   const lineY = bannerH - BANNER_LINE_H / 2;
   if (bannerText) {
-    fitFont(c, bannerText, W - safeX * 2, 46, 800, 22);
+    fitFont(c, bannerText, W - safeX * 2, 46, 800, 28);
     c.fillStyle = bannerColor;
     outlinedText(c, bannerText, W / 2, lineY, 8);
   } else {
-    fitFont(c, tipText, W - safeX * 2, 32, 800, 20);
+    fitFont(c, tipText, W - safeX * 2, 34, 800, 26);
     c.fillStyle = '#ffd25a';
     outlinedText(c, tipText, W / 2, lineY, 4);
   }
@@ -2093,28 +2119,57 @@ function formatCount(value) {
 }
 
 // Baris teratas: Top Likes selama live. Sebelum ada like, judul game yang tampil.
+// Nama selalu putih; warna benua cukup di titik kecil, karena teks merah/biru kabur setelah kompresi video.
+const DOT = 18;
+
+function segmentWidth(c, seg) {
+  return seg.dot ? DOT : c.measureText(seg.text).width;
+}
+
+function segmentsWidth(c, segments, size) {
+  return segments.reduce((sum, seg, i) => sum + segmentWidth(c, seg) + (i < segments.length - 1 ? seg.gap * size / 30 : 0), 0);
+}
+
 function drawTopLikes(c, y) {
-  const segments = [{ text: '♥ TOP LIKES', color: '#ff5d8f', gap: 26 }];
+  const segments = [{ text: '♥ TOP LIKES', color: '#ff7aa5', gap: 24 }];
   topLikes.forEach((entry, index) => {
     const team = entry.team ? teamIndex.get(entry.team) : undefined;
-    segments.push({ text: `${index + 1}`, color: '#ffd25a', gap: 8 });
-    segments.push({ text: entry.nick, color: team !== undefined ? teams[team].color : '#ffffff', gap: 8 });
-    segments.push({ text: formatCount(entry.likes), color: '#ffffff', gap: 26 });
+    segments.push({ text: `${index + 1}.`, color: '#ffd25a', gap: 8 });
+    if (team !== undefined) segments.push({ dot: teams[team].color, gap: 7 });
+    segments.push({ text: entry.nick, nick: entry.nick, color: '#ffffff', gap: 9 });
+    segments.push({ text: formatCount(entry.likes), color: '#ffd25a', gap: 24 });
   });
   const maxWidth = W - safeX * 2;
-  let size = 30;
-  let total = 0;
-  for (; size >= 16; size -= 1) {
-    c.font = `800 ${size}px ${FONT}`;
-    total = segments.reduce((sum, seg, i) => sum + c.measureText(seg.text).width + (i < segments.length - 1 ? seg.gap * size / 30 : 0), 0);
-    if (total <= maxWidth) break;
+  // Huruf tidak boleh di bawah 22 px; kalau tetap tidak muat, nama dipotong, bukan diperkecil.
+  c.font = `800 22px ${FONT}`;
+  for (let cut = 12; cut >= 5; cut -= 1) {
+    segments.forEach((seg) => {
+      if (seg.nick) seg.text = seg.nick.length > cut ? `${seg.nick.slice(0, cut - 1)}…` : seg.nick;
+    });
+    if (segmentsWidth(c, segments, 22) <= maxWidth) break;
   }
-  let x = (W - total) / 2;
+  let size = 32;
+  for (; size > 22; size -= 1) {
+    c.font = `800 ${size}px ${FONT}`;
+    if (segmentsWidth(c, segments, size) <= maxWidth) break;
+  }
+  c.font = `800 ${size}px ${FONT}`;
+  let x = (W - segmentsWidth(c, segments, size)) / 2;
   c.textAlign = 'left';
   segments.forEach((seg, i) => {
-    c.fillStyle = seg.color;
-    outlinedText(c, seg.text, x, y, 5);
-    x += c.measureText(seg.text).width + (i < segments.length - 1 ? seg.gap * size / 30 : 0);
+    if (seg.dot) {
+      c.beginPath();
+      c.arc(x + DOT / 2, y, DOT / 2, 0, TAU);
+      c.fillStyle = seg.dot;
+      c.fill();
+      c.lineWidth = 3;
+      c.strokeStyle = '#ffffff';
+      c.stroke();
+    } else {
+      c.fillStyle = seg.color;
+      outlinedText(c, seg.text, x, y, 5);
+    }
+    x += segmentWidth(c, seg) + (i < segments.length - 1 ? seg.gap * size / 30 : 0);
   });
 }
 
@@ -2135,7 +2190,7 @@ function renderTitle() {
   c.textAlign = 'center';
   c.fillStyle = '#ffffff';
   const join = `Type 1-${TEAM_COUNT} or your Country to join!`;
-  fitFont(c, join, W - safeX * 2, 26, 700, 18);
+  fitFont(c, join, W - safeX * 2, 30, 800, 24);
   outlinedText(c, join, W / 2, height * 0.76, 4);
 }
 
@@ -2158,12 +2213,12 @@ function renderHud(now) {
   outlinedText(c, timerText, left, rowY);
   const timerWidth = c.measureText(timerText).width;
   const phaseLabel = phase === 'OVERTIME' ? `OVERTIME ${cfg.gift.overtimeMultiplier}X GIFT` : PHASE_LABEL[phase] || '';
-  fitFont(c, phaseLabel, 330, 24, 800, 16);
+  fitFont(c, phaseLabel, 330, 26, 800, 20);
   outlinedText(c, phaseLabel, left + timerWidth + 14, rowY, 3);
 
   c.textAlign = 'right';
   c.fillStyle = '#e4e7f5';
-  c.font = `700 21px ${FONT}`;
+  c.font = `800 24px ${FONT}`;
   outlinedText(c, `Round ${round} • ${viewerCount} viewers`, right - 30, rowY, 3);
   c.beginPath();
   c.arc(right - 10, rowY, 9, 0, TAU);
@@ -2186,8 +2241,8 @@ function renderHud(now) {
     }
   }
   if (phase === 'CROWN' && crownResult) leader = crownResult.winner;
-  const chipTop = 44;
-  const chipH = 30;
+  const chipTop = 42;
+  const chipH = 32;
   const percentY = 98;
   const winsY = 136;
   teams.forEach((team, index) => {
@@ -2204,10 +2259,14 @@ function renderHud(now) {
     roundedRect(c, x + 5, chipTop, colW - 10, chipH, 8);
     c.fillStyle = team.color;
     c.fill();
+    // Tepi gelap mempertegas batas warna, supaya merah dan biru tidak meleber setelah kompresi 4:2:0.
+    c.lineWidth = 2;
+    c.strokeStyle = 'rgba(0,0,0,0.75)';
+    c.stroke();
     c.textAlign = 'center';
     c.fillStyle = '#ffffff';
     const name = `${team.no} ${shortName(team)}`;
-    fitFont(c, name, colW - 18, 24, 800, 12);
+    fitFont(c, name, colW - 18, 26, 800, 20);
     outlinedText(c, name, cx, chipTop + chipH / 2 + 1, 3);
 
     // Angka putih: video TikTok mengaburkan teks merah dan biru di atas latar gelap.
@@ -2218,18 +2277,18 @@ function renderHud(now) {
 
     const wins = session ? String(session[team.code] || 0) : '0';
     const boost = underdog[index] >= badgeAt ? `▲${underdog[index].toFixed(1)}` : '';
-    c.font = `800 20px ${FONT}`;
-    const winsW = 20 + c.measureText(wins).width;
+    c.font = `800 24px ${FONT}`;
+    const winsW = 22 + c.measureText(wins).width;
     const winsX = boost ? x + 10 : cx - winsW / 2;
     const isStreak = streak && streak.team === team.code && streak.count >= 3;
-    c.drawImage(isStreak ? crownSprite : starSprite, winsX, winsY - 9, 18, isStreak ? 13 : 18);
+    c.drawImage(isStreak ? crownSprite : starSprite, winsX, winsY - 11, 22, isStreak ? 16 : 22);
     c.textAlign = 'left';
     c.fillStyle = '#ffd25a';
-    outlinedText(c, wins, winsX + 21, winsY, 3);
+    outlinedText(c, wins, winsX + 25, winsY, 3);
     if (boost) {
       c.textAlign = 'right';
       c.fillStyle = '#7dffb0';
-      fitFont(c, boost, colW - 22 - winsW, 18, 800, 12);
+      fitFont(c, boost, colW - 22 - winsW, 24, 800, 20);
       outlinedText(c, boost, x + colW - 8, winsY, 3);
     }
   });
@@ -2304,18 +2363,21 @@ function renderKlasemen() {
   ordered.forEach((row, position) => {
     const y = panel.y + 56 + rowH * (position + 0.5);
     c.fillStyle = row.team.color;
-    roundedRect(c, panel.x + 16, y - 12, 48, 24, 6);
+    roundedRect(c, panel.x + 16, y - 16, 64, 32, 7);
     c.fill();
+    c.lineWidth = 2;
+    c.strokeStyle = 'rgba(0,0,0,0.75)';
+    c.stroke();
     c.textAlign = 'center';
     c.fillStyle = '#ffffff';
-    c.font = `800 17px ${FONT}`;
-    c.fillText(`${row.team.no} ${row.team.label}`, panel.x + 40, y + 1);
+    c.font = `800 22px ${FONT}`;
+    outlinedText(c, `${row.team.no} ${row.team.label}`, panel.x + 48, y + 1, 3);
     c.textAlign = 'left';
-    c.font = `700 21px ${FONT}`;
-    c.fillText(row.team.name, panel.x + 74, y + 1);
+    fitFont(c, row.team.name, rightX - panel.x - 150, 26, 800, 20);
+    c.fillText(row.team.name, panel.x + 92, y + 1);
     c.textAlign = 'right';
     c.fillStyle = '#ffd25a';
-    c.font = `800 22px ${FONT}`;
+    c.font = `800 28px ${FONT}`;
     c.fillText(String(row.wins), rightX - 14, y + 1);
   });
 
@@ -2328,19 +2390,19 @@ function renderKlasemen() {
   const hall = scoreboard ? scoreboard.hallOfFame : [];
   c.fillStyle = '#ffffff';
   if (hall.length === 0) {
-    fitFont(c, 'No MVP yet. Be the first!', panel.w - half - 24, 20, 600, 14);
+    fitFont(c, 'No MVP yet. Be the first!', panel.w - half - 24, 24, 700, 20);
     c.fillText('No MVP yet. Be the first!', rightCx, panel.y + 80);
     return;
   }
   hall.slice(0, 5).forEach((entry, index) => {
-    const y = panel.y + 72 + index * 42;
+    const y = panel.y + 72 + index * 54;
     const nick = entry.nick;
-    fitFont(c, nick, panel.w - half - 24, 21, 700, 13);
+    fitFont(c, nick, panel.w - half - 24, 24, 800, 20);
     c.fillStyle = '#ffffff';
     c.fillText(nick, rightCx, y);
     c.fillStyle = '#c4c9de';
-    c.font = `600 16px ${FONT}`;
-    c.fillText(`${entry.coins} coins`, rightCx, y + 19);
+    c.font = `700 20px ${FONT}`;
+    c.fillText(`${entry.coins} coins`, rightCx, y + 23);
   });
 }
 
@@ -2356,13 +2418,13 @@ function renderHowTo() {
   const lines = [
     ['#ffffff', `Type 1-${TEAM_COUNT} or your Country to join!`],
     ['#ffffff', "Type 'gas' or 'rush' to charge!"],
-    ['#c4c9de', `Any comment = dash • Tap = Spirit Bar (${spiritSoldiers} troops)`],
+    ['#ffffff', `Comment = dash • Tap = ${spiritSoldiers} troops`],
     ['#ffd25a', 'Biggest color when time runs out wins!'],
   ];
   const step = (panel.h - 52) / lines.length;
   lines.forEach(([color, line], index) => {
     c.fillStyle = color;
-    fitFont(c, line, width, 24, 700, 15);
+    fitFont(c, line, width, 26, 800, 20);
     c.fillText(line, W / 2, panel.y + 50 + step * (index + 0.5));
   });
 }
@@ -2399,33 +2461,33 @@ function renderCrownOverlay() {
   outlinedText(c, team.name, W / 2, 124, 8);
   c.fillStyle = '#ffffff';
   const victory = `VICTORY +1 WIN • ${crownResult.territory[team.code]}%`;
-  fitFont(c, victory, width, 36, 800, 22);
+  fitFont(c, victory, width, 36, 800, 26);
   c.fillText(victory, W / 2, 182);
 
   if (crownResult.mvp) {
     c.fillStyle = '#ffd25a';
     const mvp = `MVP: ${crownResult.mvp.nick}`;
-    fitFont(c, mvp, width, 34, 800, 20);
+    fitFont(c, mvp, width, 36, 800, 26);
     c.fillText(mvp, W / 2, 236);
     c.fillStyle = '#ffffff';
-    c.font = `600 24px ${FONT}`;
+    c.font = `700 26px ${FONT}`;
     c.fillText(`${crownResult.mvp.coins} coins`, W / 2, 272);
   }
   const hall = scoreboard ? scoreboard.hallOfFame : [];
   if (hall.length > 0) {
     c.fillStyle = '#ffd25a';
-    c.font = `800 22px ${FONT}`;
+    c.font = `800 24px ${FONT}`;
     c.fillText('HALL OF FAME', W / 2, 318);
     c.fillStyle = '#ffffff';
-    const names = hall.slice(0, 5).map((entry) => `${entry.nick} (${entry.coins})`).join('  •  ');
-    fitFont(c, names, width, 22, 600, 14);
+    const names = hall.slice(0, 3).map((entry) => `${entry.nick} (${entry.coins})`).join('  •  ');
+    fitFont(c, names, width, 26, 800, 20);
     c.fillText(names, W / 2, 352);
   }
   // Penonton yang tidak menyawer juga punya alasan untuk disebut.
   if (crownResult.topLiker) {
     const liker = `♥ Top Liker: ${crownResult.topLiker.nick} • ${formatCount(crownResult.topLiker.likes)} likes`;
     c.fillStyle = '#ff5d8f';
-    fitFont(c, liker, width, 28, 800, 16);
+    fitFont(c, liker, width, 30, 800, 22);
     outlinedText(c, liker, W / 2, 404, 5);
   }
 }
@@ -2814,6 +2876,25 @@ function frame(timestamp) {
     frameCostCount = 0;
   }
   if (DEBUG && now >= nextDebugAt) updateDebug(now);
+  if (CHECK && now >= nextCheckAt) updateCheck(now);
+}
+
+// Layar cek untuk operator: hijau kalau kanvas tepat 1080x1920 tanpa skala ulang, merah kalau tidak.
+let nextCheckAt = 0;
+function updateCheck(now) {
+  nextCheckAt = now + 0.5;
+  const element = document.getElementById('check');
+  const dpr = window.devicePixelRatio || 1;
+  const exact = canvas.width === W && canvas.height === H && qualityFactor === 1;
+  element.classList.toggle('bad', !exact);
+  element.textContent = [
+    exact ? 'OK: 1080x1920 TAJAM' : 'BELUM PAS: periksa ukuran sumber',
+    `kanvas   ${canvas.width}x${canvas.height}`,
+    `viewport ${window.innerWidth}x${window.innerHeight} @${dpr}x`,
+    `kualitas ${qualityFactor.toFixed(2)} (${LOCK_QUALITY ? 'dikunci' : 'adaptif'})`,
+    `FPS      ${fps.toFixed(0)}`,
+    exact ? 'Hapus ?check=1 sebelum siaran.' : 'Atur sumber Link ke 1080x1920.',
+  ].join('\n');
 }
 
 function updateDebug(now) {
@@ -3094,6 +3175,7 @@ async function boot() {
   setupLongPress();
   setupKeepAwake();
   document.getElementById('debug').hidden = !DEBUG;
+  document.getElementById('check').hidden = !CHECK;
   layoutBases();
 
   if (role === 'view') beginGame();

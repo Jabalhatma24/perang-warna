@@ -179,6 +179,16 @@ Bagian ini belum diuji di Windows atau di TikTok LIVE Studio sungguhan, jadi lak
 
 Jangan meminimalkan jendela game. Flag di perintah tadi menjaga game tetap berjalan saat jendelanya tertutup jendela lain, tetapi tidak saat diminimalkan.
 
+### Sumber Link (lebih tajam daripada Window Capture)
+
+Window Capture menangkap jendela yang lebih kecil dari 1080x1920 lalu memperbesarnya, jadi hasilnya lebih buram. Sumber **Link** merender game langsung:
+
+1. **Add source > Link**, isi alamat operator dengan tambahan `?autostart=1&check=1`, misalnya `http://localhost:8080/?autostart=1&check=1#key=<kunci>`. Kalau ada kolom lebar dan tinggi, isi **1080** dan **1920**.
+2. Lihat kotak di tengah pratinjau. **Hijau "OK: 1080x1920 TAJAM"** berarti kanvas tepat 1:1 dengan siaran. Kalau **merah**, ukuran sumber belum pas; perbaiki sampai hijau.
+3. Hapus `&check=1` dari alamat, lalu muat ulang sumbernya. Kotak itu ikut tersiar kalau dibiarkan.
+
+Di PC dan dengan `?autostart=1`, resolusi game dikunci penuh. Dulu game menurunkan resolusi sampai 72% kalau FPS di bawah 45. Padahal sumber Link dan Browser Source sering dibatasi 30 FPS oleh aplikasinya, jadi siaran menjadi buram tanpa terlihat. Penurunan otomatis itu kini hanya berlaku di HP yang menyiarkan layarnya sendiri. Kalau PC Anda benar-benar terlalu lemah untuk 1080x1920, tambahkan `&adaptive=1`.
+
 **OBS sebagai alternatif:** tambahkan Browser Source ke `http://localhost:8080/#key=<kunci>` dengan ukuran 1080x1920, centang kontrol audio lewat OBS, lalu klik kanan > Interact untuk menekan START.
 
 ## Siaran dari OBS di Linux
