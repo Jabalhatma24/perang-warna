@@ -1,6 +1,6 @@
 # Continental War: Battle of Nations
 
-Game interaktif untuk TikTok LIVE. Penonton memilih 1 dari 7 benua lewat komentar, lalu prajurit mereka mengecat arena. Warna terluas di akhir ronde mendapat 1 Win.
+Game interaktif untuk TikTok LIVE. Penonton memilih 1 dari 4 benua lewat komentar, lalu prajurit mereka mengecat arena. Warna terluas di akhir ronde mendapat 1 Win.
 
 Satu proses Python melayani game dan WebSocket di port 8080. Game berjalan di browser HP atau PC tanpa build step, tanpa internet untuk aset, dan tanpa berkas audio.
 
@@ -115,11 +115,13 @@ Ronde yang tercampur bot darurat tetap menambah Win sesi, tetapi tidak masuk All
 
 | Komentar | Efek |
 | --- | --- |
-| `1`-`7`, nama benua, negara, atau emoji bendera | Gabung benua |
+| `1`-`4`, nama benua, negara, atau emoji bendera | Gabung benua |
 | `gas` atau `rush` | Menyerbu: prajurit melesat dan memanggil 3 prajurit tambahan (jeda 10 detik) |
 | Komentar lain | Prajurit melesat sebentar (jeda 3 detik). Prajurit yang kalah muncul lagi |
 
-Pindah benua hanya bisa saat PREPARATION. Benua: 1 ASIA, 2 EUROPE, 3 N.AMERICA, 4 S.AMERICA, 5 MID.EAST, 6 AFRICA, 7 OCEANIA.
+Pindah benua hanya bisa saat PREPARATION. Benua: 1 ASIA, 2 EUROPE, 3 N.AMERICA, 4 S.AMERICA.
+
+Keempatnya dipilih karena jumlah pengguna TikTok-nya terbanyak. Setiap markas menempati satu sudut arena, jadi jarak dan wilayah awal semua benua sama. Posisinya berputar searah jarum jam setiap ronde.
 
 | Gift | Koin per unit | Efek |
 | --- | --- | --- |
@@ -134,7 +136,9 @@ Gift yang datang di luar pertempuran ditahan dan efeknya aktif saat perang berik
 
 ## Kamus negara
 
-`data/wilayah.json` berisi 7 benua dan 165 negara dengan alias Inggris, Indonesia, sebagian aksara lokal, dan kode ISO.
+`data/wilayah.json` berisi 4 benua dan 104 negara dengan alias Inggris, Indonesia, sebagian aksara lokal, dan kode ISO.
+
+Negara Timur Tengah, Afrika, dan Oseania sengaja tidak ada. Komentar berisi nama atau bendera negara itu diabaikan, tetapi penontonnya tetap bisa ikut dengan mengetik angka 1-4. Daftar lengkapnya masih ada di riwayat git (commit `86029bc`).
 
 - **Kode 2 huruf hanya sah jika berdiri sendiri.** `it` bergabung ke Italy, tetapi `i love it` tidak.
 - **Kode yang merupakan kata sehari-hari tidak dipakai:** `no`, `me`, `so`, `to`, `is`, `am`, `at`, `be`, `do`, `si`, `la`, `pa`, `by`, `ai`. Benderanya tetap berlaku.
@@ -147,7 +151,7 @@ Gift yang datang di luar pertempuran ditahan dan efeknya aktif saat perang berik
 Game menjelaskan dirinya sendiri:
 
 - **Kartu How to Play** tampil selama 12 detik pertama PREPARATION, lalu berganti ke All-Time Ranking. Selama ranking masih kosong, kartu ini tampil sepanjang PREPARATION.
-- **Papan skor** berupa tabel 7 kolom: `1 ASIA`, persen wilayah, jumlah menang, dan bonus Underdog (`▲1.5`). Kubu yang memimpin diberi bingkai emas.
+- **Papan skor** berupa tabel 4 kolom: `1 ASIA`, persen wilayah, jumlah menang, dan bonus Underdog (`▲1.5`). Kubu yang memimpin diberi bingkai emas.
 - **Markas** menampilkan singkatan benua dan angka untuk bergabung.
 - **Strip gift** di atas arena selalu tampil: 1 koin, 10+, 100+, dan 1000+ koin beserta efeknya. Kotaknya berkedip saat ada yang mengirim gift dari tingkat itu, dan diberi tanda `x2` saat Overtime.
 - **Baris tips** di antara strip gift dan arena berganti tiap 5 detik, sebagian berbahasa Indonesia. Saat ada pengumuman gift, baris ini dipakai pengumuman itu.
@@ -157,8 +161,8 @@ Durasinya diatur lewat `help.prepHowToSeconds` dan `help.tipSeconds` di `config.
 
 Teks siap tempel untuk TikTok:
 
-- **Judul live:** `Continental War: Type 1-7!`
-- **Komentar yang disematkan:** `Type your number: 1 Asia 2 Europe 3 N.America 4 S.America 5 Mid.East 6 Africa 7 Oceania. Biggest color wins!`
+- **Judul live:** `Continental War: Type 1-4!`
+- **Komentar yang disematkan:** `Type your number: 1 Asia 2 Europe 3 N.America 4 S.America. Biggest color wins!`
 
 ## TikTok LIVE Studio di PC
 

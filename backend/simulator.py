@@ -39,7 +39,7 @@ class Simulator:
         self._group = 100000
         self._streaks: list[dict] = []
         # Bobot timpang supaya bonus Underdog ikut teruji.
-        weights = [40, 22, 12, 10, 8, 5, 3]
+        weights = [40, 22, 12, 10, 8, 5, 3][:len(self.wilayah.codes)]
         self.rng.shuffle(weights)
         self.team_weights = weights
         self.aliases_by_team = self._collect_aliases()

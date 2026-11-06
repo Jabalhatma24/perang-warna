@@ -14,12 +14,11 @@ DATA = json.loads((ROOT / "data" / "wilayah.json").read_text(encoding="utf-8"))
     [
         # Angka
         ("1", "ASIA", None),
-        ("🔥 7 🔥", "OCEANIA", None),
+        ("🔥 4 🔥", "SOUTH_AMERICA", None),
         ("3️⃣", "NORTH_AMERICA", None),
         # Nama benua
         ("asia", "ASIA", None),
         ("EUROPE!!", "EUROPE", None),
-        ("timur tengah", "MIDDLE_EAST", None),
         ("n.america", "NORTH_AMERICA", None),
         ("amerika selatan", "SOUTH_AMERICA", None),
         # Negara: Inggris dan Indonesia
@@ -28,12 +27,7 @@ DATA = json.loads((ROOT / "data" / "wilayah.json").read_text(encoding="utf-8"))
         ("from brazil", "SOUTH_AMERICA", "Brazil"),
         ("jepang", "ASIA", "Japan"),
         ("jerman", "EUROPE", "Germany"),
-        ("selandia baru", "OCEANIA", "New Zealand"),
         ("amerika serikat", "NORTH_AMERICA", "USA"),
-        ("south africa", "AFRICA", "South Africa"),
-        ("afrika selatan", "AFRICA", "South Africa"),
-        ("papua new guinea", "OCEANIA", "Papua New Guinea"),
-        ("dubai", "MIDDLE_EAST", "UAE"),
         ("holland", "EUROPE", "Netherlands"),
         ("jawa", "ASIA", "Indonesia"),
         # Kode ISO, hanya jika berdiri sendiri
@@ -43,18 +37,14 @@ DATA = json.loads((ROOT / "data" / "wilayah.json").read_text(encoding="utf-8"))
         ("my", "ASIA", "Malaysia"),
         ("us", "NORTH_AMERICA", "USA"),
         ("uk", "EUROPE", "United Kingdom"),
-        ("ksa", "MIDDLE_EAST", "Saudi Arabia"),
-        ("za", "AFRICA", "South Africa"),
         # Label di layar lebih utama daripada kode ISO negara
         ("SA", "SOUTH_AMERICA", None),
         ("AS", "ASIA", None),
-        ("AF", "AFRICA", None),
         ("NA", "NORTH_AMERICA", None),
         # Tanda baca Latin
         ("México", "NORTH_AMERICA", "Mexico"),
         ("España", "EUROPE", "Spain"),
         ("Việt Nam", "ASIA", "Vietnam"),
-        ("Türkiye", "MIDDLE_EAST", "Turkey"),
         ("Perú", "SOUTH_AMERICA", "Peru"),
         # Aksara lokal
         ("日本", "ASIA", "Japan"),
@@ -62,19 +52,15 @@ DATA = json.loads((ROOT / "data" / "wilayah.json").read_text(encoding="utf-8"))
         ("ไทย", "ASIA", "Thailand"),
         ("भारत", "ASIA", "India"),
         ("Россия", "EUROPE", "Russia"),
-        ("مصر", "MIDDLE_EAST", "Egypt"),
         # Emoji bendera
         ("🇯🇵", "ASIA", "Japan"),
         ("🇧🇷 lets go", "SOUTH_AMERICA", "Brazil"),
         ("🇳🇴", "EUROPE", "Norway"),
         ("🇮🇩🇮🇩🇮🇩", "ASIA", "Indonesia"),
-        ("🇸🇦", "MIDDLE_EAST", "Saudi Arabia"),
         # Dua negara dalam satu kubu tetap sah
         ("japan and korea", "ASIA", "Japan"),
         # Nama yang juga kata sehari-hari, jika berdiri sendiri
         ("cuba", "NORTH_AMERICA", "Cuba"),
-        ("chad", "AFRICA", "Chad"),
-        ("turkey", "MIDDLE_EAST", "Turkey"),
         ("french", "EUROPE", "France"),
     ],
 )
@@ -101,6 +87,8 @@ def test_join_matches(wilayah, text, team, country):
         "balikpapan", "nigerian" + "x", "bali" + "kpapan", "iranian", "omani", "chinatown", "perumahan", "malian",
         # Bendera yang tidak terdaftar
         "🇦🇶",
+        # Benua yang tidak ikut: hanya 4 benua dengan pengguna TikTok terbanyak
+        "5", "6", "7", "timur tengah", "afrika", "oceania", "egypt", "saudi", "dubai", "australia", "nigeria", "🇸🇦", "🇦🇺",
     ],
 )
 def test_not_a_join(wilayah, text):
@@ -108,8 +96,8 @@ def test_not_a_join(wilayah, text):
 
 
 def test_world_data_shape():
-    assert len(DATA["kubu"]) == 7
-    assert [k["no"] for k in DATA["kubu"]] == list(range(1, 8))
+    assert [k["code"] for k in DATA["kubu"]] == ["ASIA", "EUROPE", "NORTH_AMERICA", "SOUTH_AMERICA"]
+    assert [k["no"] for k in DATA["kubu"]] == list(range(1, 5))
     assert len(DATA["countries"]) >= 100
     assert len({c["name"] for c in DATA["countries"]}) == len(DATA["countries"])
     assert len({c["iso"] for c in DATA["countries"]}) == len(DATA["countries"])
@@ -153,8 +141,8 @@ def test_every_country_flag_resolves(wilayah):
 
 def test_placements_from_the_brief(wilayah):
     expected = {
-        "Egypt": "MIDDLE_EAST", "Turkey": "MIDDLE_EAST", "Palestine": "MIDDLE_EAST", "Russia": "EUROPE",
-        "Mexico": "NORTH_AMERICA", "Morocco": "AFRICA", "Fiji": "OCEANIA", "Philippines": "ASIA",
+        "Russia": "EUROPE", "Mexico": "NORTH_AMERICA", "Philippines": "ASIA", "Brazil": "SOUTH_AMERICA",
+        "Indonesia": "ASIA", "USA": "NORTH_AMERICA",
     }
     placed = {c["name"]: c["kubu"] for c in DATA["countries"]}
     for name, team in expected.items():
@@ -209,8 +197,8 @@ def test_dash_and_rally_cooldowns(wilayah):
 def test_action_carries_last_team(wilayah):
     chat = ChatProcessor(wilayah)
     chat.handle("a", "asia", 0.0)
-    chat.handle("a", "oceania", 1.0)
-    assert chat.handle("a", "hello", 2.0)["team"] == "OCEANIA"
+    chat.handle("a", "europe", 1.0)
+    assert chat.handle("a", "hello", 2.0)["team"] == "EUROPE"
 
 
 @pytest.mark.parametrize(
@@ -241,8 +229,7 @@ def test_nick_is_cut_and_fallback_is_stable(moderator):
 
 
 def test_country_names_are_not_censored_as_nicknames(moderator):
-    # "Niger" sengaja dikecualikan: bentuk ringkasnya sama dengan kata kasar yang disamarkan.
     names = [a for c in DATA["countries"] for a in [c["name"], *c["aliases"]]]
     names += [a for k in DATA["kubu"] for a in [k["name"], *k["aliases"]]]
     blocked = [name for name in names if moderator.is_blocked(name)]
-    assert blocked == ["Niger"]
+    assert blocked == []

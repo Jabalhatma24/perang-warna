@@ -44,7 +44,7 @@ class TeamMatch:
 
 
 class Wilayah:
-    """Kamus 7 kubu, negara, dan alias dari data/wilayah.json."""
+    """Kamus kubu, negara, dan alias dari data/wilayah.json."""
 
     def __init__(self, data: dict):
         self.kubu = sorted(data["kubu"], key=lambda k: k["no"])

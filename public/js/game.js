@@ -14,11 +14,12 @@ const W = 1080;
 const H = 1920;
 const FONT = 'system-ui, -apple-system, "Segoe UI", Roboto, "Noto Sans", sans-serif';
 const TAU = Math.PI * 2;
-const TEAM_COUNT = 7;
+// Harus sama dengan jumlah kubu di data/wilayah.json: 4 benua dengan pengguna TikTok terbanyak.
+const TEAM_COUNT = 4;
 const CELL_EMPTY = 0;
-const COLOR_WHITE = 7;
-const COLOR_GOLD = 8;
-const COLOR_COUNT = 9;
+const COLOR_WHITE = TEAM_COUNT;
+const COLOR_GOLD = TEAM_COUNT + 1;
+const COLOR_COUNT = TEAM_COUNT + 2;
 const PHASE_LABEL = {
   PREP: 'PREPARATION', BATTLE: 'BATTLE', SUDDEN: 'SUDDEN DEATH', CROWN: 'VICTORY & CORONATION',
 };
@@ -140,8 +141,10 @@ let labelCount = 0;
 const countryIso = new Map();
 let emojiOk = true;
 let flagsOk = true;
-const PERIMETER_ORDER = ['ASIA', 'OCEANIA', 'EUROPE', 'MIDDLE_EAST', 'NORTH_AMERICA', 'SOUTH_AMERICA', 'AFRICA'];
-const SLOT_POSITIONS = [[0, 0], [0.5, 0], [1, 0], [1, 0.5], [1, 1], [0, 1], [0, 0.5]];
+// Satu markas di tiap sudut arena: jarak dan wilayah alami tiap kubu sama persis.
+// Posisinya berputar searah jarum jam tiap ronde.
+const PERIMETER_ORDER = ['ASIA', 'EUROPE', 'NORTH_AMERICA', 'SOUTH_AMERICA'];
+const SLOT_POSITIONS = [[0, 0], [1, 0], [1, 1], [0, 1]];
 let perimeterTeams = [];
 let nextUnderdogAt = 0;
 let nextRageCheckAt = 0;
@@ -301,6 +304,7 @@ function flushSfx() {
 // ======================================================================
 function setupTeams() {
   teams = wilayah.kubu.slice().sort((a, b) => a.no - b.no);
+  if (teams.length !== TEAM_COUNT) throw new Error(`wilayah.json berisi ${teams.length} kubu, game ini butuh ${TEAM_COUNT}`);
   teams.forEach((team, index) => {
     teamIndex.set(team.code, index);
     team.rgb = hexToRgb(team.color);
@@ -659,7 +663,7 @@ function layoutBases() {
   perimeterTeams.forEach((team, order) => {
     const slot = SLOT_POSITIONS[(order + shift) % SLOT_POSITIONS.length];
     baseX[team] = insetX + slot[0] * (W - insetX * 2);
-    baseY[team] = arenaTop + insetY + slot[1] * (visibleH - insetY * 2);
+    baseY[team] = arenaTop + insetY + slot[1] * (arenaH - insetY * 2);
   });
 }
 
@@ -1096,11 +1100,11 @@ function shortName(team) {
 // Host tidak bersuara, jadi game sendiri yang menjelaskan aturannya. Gift punya strip tetap sendiri.
 function buildTips() {
   const { rallySoldiers, spiritSoldiers } = cfg.gameplay;
-  const join = 'Type 1-7 or your Country to join!';
+  const join = `Type 1-${TEAM_COUNT} or your Country to join!`;
   return [
     join,
     'Biggest color when time runs out wins +1 WIN',
-    'Ketik angka 1-7 atau nama negaramu untuk ikut!',
+    `Ketik angka 1-${TEAM_COUNT} atau nama negaramu untuk ikut!`,
     'Any comment: your troop dashes',
     `Type 'gas' or 'rush' to charge with ${rallySoldiers} extra troops!`,
     join,
@@ -2067,12 +2071,12 @@ function renderTitle() {
   fitFont(c, 'CONTINENTAL WAR', W - safeX * 2, 42, 800, 28);
   outlinedText(c, 'CONTINENTAL WAR', W / 2, height * 0.36, 5);
   c.fillStyle = '#ffffff';
-  const join = 'Type 1-7 or your Country to join!';
+  const join = `Type 1-${TEAM_COUNT} or your Country to join!`;
   fitFont(c, join, W - safeX * 2, 26, 700, 18);
   outlinedText(c, join, W / 2, height * 0.76, 4);
 }
 
-// Papan skor berupa tabel 7 kolom tetap: posisi tiap angka tidak bergeser walau nilainya berubah.
+// Papan skor berupa tabel satu kolom per kubu: posisi tiap angka tidak bergeser walau nilainya berubah.
 function renderHud(now) {
   const c = hudCtx;
   const left = safeX;
@@ -2140,13 +2144,13 @@ function renderHud(now) {
     c.textAlign = 'center';
     c.fillStyle = '#ffffff';
     const name = `${team.no} ${shortName(team)}`;
-    fitFont(c, name, colW - 18, 19, 800, 12);
+    fitFont(c, name, colW - 18, 24, 800, 12);
     outlinedText(c, name, cx, chipTop + chipH / 2 + 1, 3);
 
     // Angka putih: video TikTok mengaburkan teks merah dan biru di atas latar gelap.
     const percent = `${Math.round(territoryShare(index) * 100)}%`;
     c.fillStyle = '#ffffff';
-    fitFont(c, percent, colW - 14, 40, 800, 24);
+    fitFont(c, percent, colW - 14, 46, 800, 24);
     outlinedText(c, percent, cx, percentY);
 
     const wins = session ? String(session[team.code] || 0) : '0';
@@ -2167,7 +2171,7 @@ function renderHud(now) {
     }
   });
 
-  // Bar wilayah 7 warna, lalu Bar Semangat per kolom tepat di bawah kolomnya.
+  // Bar wilayah per warna, lalu Bar Semangat per kolom tepat di bawah kolomnya.
   const barY = winsY + 16;
   const barH = 7;
   const painted = paintedCells();
@@ -2195,7 +2199,7 @@ function renderHud(now) {
   nextHudAt = now + 0.25;
 }
 
-// Panel Persiapan di tengah arena, di antara markas kiri, kanan, dan atas. Cara Main sengaja pendek
+// Panel Persiapan di tengah arena, di antara markas di sudut. Cara Main sengaja pendek
 // supaya nama pendatang baru di markas bawah tetap punya tempat.
 function prepPanelRect(kind = overlayKind) {
   const x = safeX + 109 * baseK + 22;
@@ -2287,7 +2291,7 @@ function renderHowTo() {
   fitFont(c, 'HOW TO PLAY', width, 30);
   c.fillText('HOW TO PLAY', W / 2, panel.y + 26);
   const lines = [
-    ['#ffffff', 'Type 1-7 or your Country to join!'],
+    ['#ffffff', `Type 1-${TEAM_COUNT} or your Country to join!`],
     ['#ffffff', "Type 'gas' or 'rush' to charge!"],
     ['#c4c9de', `Any comment = dash • Tap = Spirit Bar (${spiritSoldiers} troops)`],
     ['#ffd25a', 'Biggest color when time runs out wins!'],
@@ -2322,7 +2326,7 @@ function renderCrownOverlay() {
     c.font = `800 52px ${FONT}`;
     c.fillText('No winner yet', W / 2, visibleH / 2 - 28);
     c.font = `600 30px ${FONT}`;
-    c.fillText('Type 1-7 for the next round', W / 2, visibleH / 2 + 30);
+    c.fillText(`Type 1-${TEAM_COUNT} for the next round`, W / 2, visibleH / 2 + 30);
     return;
   }
   const team = teams[crownResult.winner];
