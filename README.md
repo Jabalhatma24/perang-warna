@@ -149,8 +149,8 @@ Game menjelaskan dirinya sendiri:
 - **Kartu How to Play** tampil selama 12 detik pertama PREPARATION, lalu berganti ke All-Time Ranking. Selama ranking masih kosong, kartu ini tampil sepanjang PREPARATION.
 - **Papan skor** berupa tabel 7 kolom: `1 ASIA`, persen wilayah, jumlah menang, dan bonus Underdog (`▲1.5`). Kubu yang memimpin diberi bingkai emas.
 - **Markas** menampilkan singkatan benua dan angka untuk bergabung.
-- **Strip gift** di bawah arena selalu tampil: 1 koin, 10+, 100+, dan 1000+ koin beserta efeknya. Kotaknya berkedip saat ada yang mengirim gift dari tingkat itu, dan diberi tanda `x2` saat Overtime.
-- **Baris tips** di atas strip gift berganti tiap 5 detik, sebagian berbahasa Indonesia. Saat ada pengumuman gift, baris ini dipakai pengumuman itu.
+- **Strip gift** di atas arena selalu tampil: 1 koin, 10+, 100+, dan 1000+ koin beserta efeknya. Kotaknya berkedip saat ada yang mengirim gift dari tingkat itu, dan diberi tanda `x2` saat Overtime.
+- **Baris tips** di antara strip gift dan arena berganti tiap 5 detik, sebagian berbahasa Indonesia. Saat ada pengumuman gift, baris ini dipakai pengumuman itu.
 - **Nama prajurit** satu baris dengan bendera negaranya (atau kode negara kalau perangkat tidak bisa menampilkan bendera). Nama hanya digambar di tempat kosong, jadi tidak pernah menumpuk. Paling banyak 14 nama sekaligus (`gameplay.maxLabels`).
 
 Durasinya diatur lewat `help.prepHowToSeconds` dan `help.tipSeconds` di `config.json`.
@@ -220,7 +220,7 @@ Skrip mengunci alat pada satu commit yang sudah dibaca kodenya. Alatnya sendiri 
 - `data/wilayah.json`: benua, negara, alias. Setiap alias hanya boleh dimiliki satu negara. Kata di daftar `ambiguous` hanya dihitung jika komentar hanya berisi kata itu.
 - `data/blocklist.txt`: kata terlarang untuk nickname, satu per baris. Awalan `=` memaksa cek kata utuh, untuk kata yang menjadi bagian nama wajar.
 
-Zona layar diukur dari tangkapan layar TikTok di HP 1182x2560: profil host menutupi sekitar 15% teratas, dan kolom komentar mulai sekitar 51% dari atas. Karena itu semua informasi penting berada di 15-51% (`layout` di `config.json`), dan teks dijauhkan `safeX` = 100 piksel dari tepi kiri-kanan, berjaga kalau TikTok memotong sisi video 9:16. Bagian bawah hanya berisi latar dan Sultan Wall.
+Zona layar diukur dari tangkapan layar TikTok di HP 1182x2560: profil host menutupi bagian teratas, dan kolom komentar mulai sekitar 51% dari atas (`layout.commentTop`). Urutan dari atas: judul, papan skor, strip gift dan pengumuman, lalu arena. Sepertiga bawah arena boleh tertutup komentar, tetapi markas dan nama prajurit hanya ditaruh di bagian yang terlihat. Teks dijauhkan `safeX` = 100 piksel dari tepi kiri-kanan, berjaga kalau TikTok memotong sisi video 9:16.
 
 ## API key TikTok
 

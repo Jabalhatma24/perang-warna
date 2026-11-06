@@ -31,11 +31,11 @@
     "paintRadius2At": 1.7,
     "badgeAt": 1.2
   },
-  "grid": { "cols": 96, "rows": 36 },
+  "grid": { "cols": 96, "rows": 60 },
   "limits": { "soldiers": 300, "particles": 800, "eventsPerFrame": 30, "queueMax": 4000 },
   "gameplay": {
     "soldierSpeed": 120,
-    "soldierRadius": 12,
+    "soldierRadius": 13,
     "dashSeconds": 1.2,
     "dashSpeed": 2.2,
     "rallySoldiers": 3,
@@ -52,7 +52,7 @@
     "maxLabels": 14
   },
   "help": { "prepHowToSeconds": 12, "tipSeconds": 5 },
-  "layout": { "titleTop": 0.085, "topEmptyEnd": 0.15, "hudEnd": 0.235, "arenaEnd": 0.445, "bannerEnd": 0.51, "safeX": 100 },
+  "layout": { "titleTop": 0.07, "hudTop": 0.12, "bannerTop": 0.205, "arenaTop": 0.27, "arenaEnd": 0.62, "commentTop": 0.515, "safeX": 100 },
   "audio": {
     "volume": { "master": 0.8, "sfx": 0.7, "music": 0.25, "ui": 0.5 },
     "musicOn": true,

@@ -62,6 +62,8 @@ let lowFpsSeconds = 0;
 // Zona diukur dari tangkapan layar TikTok di HP: profil host menutupi atas, komentar menutupi bawah.
 let safeX = 100;
 let titleTop = 0;
+// Bagian arena di bawah garis ini bisa tertutup komentar: markas dan nama tidak ditaruh di sana.
+let visibleH = 0;
 let hudTop = 0;
 let hudH = 0;
 let arenaTop = 0;
@@ -199,6 +201,7 @@ let bannerText = '';
 let bannerColor = '#ffffff';
 let bannerDirty = true;
 const BANNER_LINE_H = 56;
+const GIFT_STRIP_TOP = 6;
 const GIFT_TIERS = ['MICRO', 'MID', 'SULTAN', 'MEGA'];
 const GIFT_FLASH_SECONDS = 0.8;
 const giftFlashAt = new Float64Array(GIFT_TIERS.length).fill(-10);
@@ -323,15 +326,17 @@ function flagOf(iso) {
 
 function setupLayout() {
   const layout = cfg.layout;
+  // Urutan dari atas: judul, papan skor, strip gift + pengumuman, arena, lalu hiasan.
   safeX = layout.safeX ?? 100;
-  titleTop = (layout.titleTop ?? layout.topEmptyEnd) * H;
-  hudTop = layout.topEmptyEnd * H;
-  hudH = (layout.hudEnd - layout.topEmptyEnd) * H;
-  arenaTop = layout.hudEnd * H;
-  arenaH = (layout.arenaEnd - layout.hudEnd) * H;
-  bannerTop = layout.arenaEnd * H;
-  bannerH = (layout.bannerEnd - layout.arenaEnd) * H;
-  decoTop = layout.bannerEnd * H;
+  titleTop = layout.titleTop * H;
+  hudTop = layout.hudTop * H;
+  hudH = (layout.bannerTop - layout.hudTop) * H;
+  bannerTop = layout.bannerTop * H;
+  bannerH = (layout.arenaTop - layout.bannerTop) * H;
+  arenaTop = layout.arenaTop * H;
+  arenaH = (layout.arenaEnd - layout.arenaTop) * H;
+  decoTop = layout.arenaEnd * H;
+  visibleH = clamp((layout.commentTop ?? layout.arenaEnd) * H - arenaTop, 300, arenaH);
   cols = cfg.grid.cols;
   rows = cfg.grid.rows;
   cellCount = cols * rows;
@@ -641,7 +646,7 @@ function layoutBases() {
   perimeterTeams.forEach((team, order) => {
     const slot = SLOT_POSITIONS[(order + shift) % SLOT_POSITIONS.length];
     baseX[team] = insetX + slot[0] * (W - insetX * 2);
-    baseY[team] = arenaTop + insetY + slot[1] * (arenaH - insetY * 2);
+    baseY[team] = arenaTop + insetY + slot[1] * (visibleH - insetY * 2);
   });
 }
 
@@ -1129,8 +1134,8 @@ function giftTileRect(index) {
 
 // Kedipan digambar langsung di atas strip, supaya strip (dengan emojinya) tidak perlu digambar ulang.
 function drawGiftFlash(now) {
-  const top = bannerTop + BANNER_LINE_H + 4;
-  const height = bannerH - BANNER_LINE_H - 8;
+  const top = bannerTop + GIFT_STRIP_TOP;
+  const height = bannerH - BANNER_LINE_H - GIFT_STRIP_TOP - 2;
   const tiles = giftTiles();
   for (let index = 0; index < GIFT_TIERS.length; index += 1) {
     const flash = 1 - (now - giftFlashAt[index]) / GIFT_FLASH_SECONDS;
@@ -1216,16 +1221,17 @@ function renderBanner(now) {
   c.textAlign = 'center';
   c.textBaseline = 'middle';
   // Satu baris: pengumuman gift kalau ada, selain itu tips cara main.
+  const lineY = bannerH - BANNER_LINE_H / 2;
   if (bannerText) {
     fitFont(c, bannerText, W - safeX * 2, 46, 800, 22);
     c.fillStyle = bannerColor;
-    outlinedText(c, bannerText, W / 2, BANNER_LINE_H / 2, 8);
+    outlinedText(c, bannerText, W / 2, lineY, 8);
   } else {
     fitFont(c, tipText, W - safeX * 2, 32, 800, 20);
     c.fillStyle = '#ffd25a';
-    outlinedText(c, tipText, W / 2, BANNER_LINE_H / 2, 4);
+    outlinedText(c, tipText, W / 2, lineY, 4);
   }
-  drawGiftStrip(c, BANNER_LINE_H + 4, bannerH - BANNER_LINE_H - 8);
+  drawGiftStrip(c, GIFT_STRIP_TOP, bannerH - BANNER_LINE_H - GIFT_STRIP_TOP - 2);
 }
 
 // ======================================================================
@@ -2045,11 +2051,11 @@ function renderTitle() {
   c.textAlign = 'center';
   c.textBaseline = 'middle';
   c.fillStyle = '#ffd25a';
-  fitFont(c, 'CONTINENTAL WAR', W - safeX * 2, 46, 800, 28);
+  fitFont(c, 'CONTINENTAL WAR', W - safeX * 2, 42, 800, 28);
   outlinedText(c, 'CONTINENTAL WAR', W / 2, height * 0.36, 5);
   c.fillStyle = '#ffffff';
   const join = 'Type 1-7 or your Country to join!';
-  fitFont(c, join, W - safeX * 2, 28, 700, 18);
+  fitFont(c, join, W - safeX * 2, 26, 700, 18);
   outlinedText(c, join, W / 2, height * 0.76, 4);
 }
 
@@ -2179,7 +2185,7 @@ function renderHud(now) {
 // Panel Persiapan di tengah arena, di antara markas kiri, kanan, dan atas. Cara Main sengaja pendek
 // supaya nama pendatang baru di markas bawah tetap punya tempat.
 function prepPanelRect(kind = overlayKind) {
-  const h = kind === 'klasemen' ? arenaH - 126 : 200;
+  const h = kind === 'klasemen' ? visibleH - 126 : 200;
   return { x: safeX + 132, y: 118, w: W - (safeX + 132) * 2, h };
 }
 
@@ -2299,9 +2305,9 @@ function renderCrownOverlay() {
   if (!crownResult || crownResult.winner < 0) {
     c.fillStyle = '#ffffff';
     c.font = `800 52px ${FONT}`;
-    c.fillText('No winner yet', W / 2, arenaH / 2 - 28);
+    c.fillText('No winner yet', W / 2, visibleH / 2 - 28);
     c.font = `600 30px ${FONT}`;
-    c.fillText('Type 1-7 for the next round', W / 2, arenaH / 2 + 30);
+    c.fillText('Type 1-7 for the next round', W / 2, visibleH / 2 + 30);
     return;
   }
   const team = teams[crownResult.winner];
@@ -2426,7 +2432,8 @@ function labelFree(x, y, w, h, panel) {
 function placeLabel(s, x, y, panel) {
   const w = s.labelW;
   const left = clamp(x, safeX, W - safeX - w);
-  const top = clamp(y, arenaTop + 2, arenaTop + arenaH - LABEL_H - 2);
+  if (y > arenaTop + visibleH - LABEL_H) return false; // tertutup komentar TikTok
+  const top = clamp(y, arenaTop + 2, arenaTop + visibleH - LABEL_H - 2);
   if (!labelFree(left, top, w, LABEL_H, panel)) return false;
   const o = labelCount * 4;
   labelRects[o] = left;
@@ -2761,7 +2768,7 @@ function updateDebug(now) {
     bannerText,
     phaseLeft,
     labels: Array.from(labelRects.slice(0, labelCount * 4)),
-    zones: { safeX, titleTop, hudTop, arenaTop, arenaH, bannerTop, bannerH, decoTop },
+    zones: { safeX, titleTop, hudTop, arenaTop, arenaH, visibleH, bannerTop, bannerH, decoTop },
     emojiOk,
     flagsOk,
   };
