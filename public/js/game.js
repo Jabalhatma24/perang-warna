@@ -7,6 +7,8 @@ const params = new URLSearchParams(location.search);
 const DEBUG = params.get('debug') === '1';
 // Khusus pengujian: ?speed=10 mempercepat durasi fase saja, bukan simulasi arena.
 const PHASE_SPEED = Math.max(0.1, Number(params.get('speed')) || 1);
+// Khusus pengujian: ?baseSize=64 untuk membandingkan ukuran markas tanpa mengubah config.json.
+const TEST_BASE_SIZE = Number(params.get('baseSize')) || 0;
 
 const W = 1080;
 const H = 1920;
@@ -64,6 +66,9 @@ let safeX = 100;
 let titleTop = 0;
 // Bagian arena di bawah garis ini bisa tertutup komentar: markas dan nama tidak ditaruh di sana.
 let visibleH = 0;
+// Diameter markas dalam piksel logis; semua jarak di sekitar markas mengikuti skala ini (100 = ukuran lama).
+let baseSize = 76;
+let baseK = 0.76;
 let hudTop = 0;
 let hudH = 0;
 let arenaTop = 0;
@@ -337,6 +342,10 @@ function setupLayout() {
   arenaH = (layout.arenaEnd - layout.arenaTop) * H;
   decoTop = layout.arenaEnd * H;
   visibleH = clamp((layout.commentTop ?? layout.arenaEnd) * H - arenaTop, 300, arenaH);
+  // Otomatis sekitar 11% dari sisi terpendek arena. Di bawah 64 px kodenya sulit dibaca setelah kompresi video.
+  const autoSize = Math.min(W, arenaH) * 0.113;
+  baseSize = Math.round(clamp(TEST_BASE_SIZE || layout.baseSize || autoSize, 64, 100));
+  baseK = baseSize / 100;
   cols = cfg.grid.cols;
   rows = cfg.grid.rows;
   cellCount = cols * rows;
@@ -414,14 +423,18 @@ function setupSprites() {
   });
 
   // Markas: singkatan di tengah, angka untuk bergabung di lencana putih. Nama lengkapnya ada di papan skor.
+  // Isi bulatan sedikit tembus pandang supaya wilayah di bawahnya tetap terlihat; teks dan garis tetap pekat.
   baseSprites = teams.map((team) => {
-    const sprite = makeCanvas(240, 240);
+    const size = Math.ceil(240 * baseK);
+    const sprite = makeCanvas(size, size);
     const c = sprite.getContext('2d');
-    c.scale(2, 2);
+    c.scale(size / 120, size / 120);
     c.beginPath();
     c.arc(60, 64, 50, 0, TAU);
+    c.globalAlpha = 0.85;
     c.fillStyle = team.color;
     c.fill();
+    c.globalAlpha = 1;
     c.lineWidth = 7;
     c.strokeStyle = '#ffffff';
     c.stroke();
@@ -640,8 +653,8 @@ function adaptQuality() {
 
 function layoutBases() {
   // Markas menjauhi tepi kiri-kanan: TikTok bisa memotong sisi video 9:16 di HP yang lebih panjang.
-  const insetX = safeX + 52;
-  const insetY = 64;
+  const insetX = safeX + 52 * baseK;
+  const insetY = 64 * baseK;
   const shift = Math.max(0, round - 1);
   perimeterTeams.forEach((team, order) => {
     const slot = SLOT_POSITIONS[(order + shift) % SLOT_POSITIONS.length];
@@ -2185,8 +2198,10 @@ function renderHud(now) {
 // Panel Persiapan di tengah arena, di antara markas kiri, kanan, dan atas. Cara Main sengaja pendek
 // supaya nama pendatang baru di markas bawah tetap punya tempat.
 function prepPanelRect(kind = overlayKind) {
-  const h = kind === 'klasemen' ? visibleH - 126 : 200;
-  return { x: safeX + 132, y: 118, w: W - (safeX + 132) * 2, h };
+  const x = safeX + 109 * baseK + 22;
+  const y = 117 * baseK + 4;
+  const h = kind === 'klasemen' ? visibleH - y - 8 : 200;
+  return { x, y, w: W - x * 2, h };
 }
 
 function drawPrepPanel(c, kind) {
@@ -2423,7 +2438,8 @@ function labelFree(x, y, w, h, panel) {
       && y < labelRects[o + 1] + labelRects[o + 3] && y + h > labelRects[o + 1]) return false;
   }
   for (let team = 0; team < TEAM_COUNT; team += 1) {
-    if (Math.abs(x + w / 2 - baseX[team]) < w / 2 + 58 && Math.abs(y + h / 2 - baseY[team]) < h / 2 + 60) return false;
+    if (Math.abs(x + w / 2 - baseX[team]) < w / 2 + 53 * baseK + 5
+      && Math.abs(y + h / 2 - baseY[team]) < h / 2 + 53 * baseK + 7) return false;
   }
   if (panel && x < panel.x + panel.w && x + w > panel.x && y < panel.y + panel.h && y + h > panel.y) return false;
   return true;
@@ -2462,12 +2478,13 @@ function placeNearBase(s, panel) {
   const by = baseY[team];
   const w = s.labelW;
   const inward = bx < W / 2 ? 1 : -1;
-  const sideX = inward > 0 ? bx + 62 : bx - 62 - w;
-  return placeLabel(s, bx - w / 2, by + 60, panel)
-    || placeLabel(s, bx - w / 2, by - 64 - LABEL_H, panel)
+  const side = 57 * baseK + 5;
+  const sideX = inward > 0 ? bx + side : bx - side - w;
+  return placeLabel(s, bx - w / 2, by + 53 * baseK + 8, panel)
+    || placeLabel(s, bx - w / 2, by - 61 * baseK - 3 - LABEL_H, panel)
     || placeLabel(s, sideX, by - LABEL_H / 2, panel)
-    || placeLabel(s, sideX, by - 62, panel)
-    || placeLabel(s, sideX, by + 32, panel);
+    || placeLabel(s, sideX, by - 62 * baseK, panel)
+    || placeLabel(s, sideX, by + 32 * baseK, panel);
 }
 
 // Nama hanya digambar di tempat kosong: tidak menumpuk nama lain, markas, panel, atau keluar tepi.
@@ -2598,10 +2615,11 @@ function render(now) {
   // Markas digambar di atas prajurit supaya singkatan dan angkanya selalu terbaca.
   const streak = scoreboard ? scoreboard.streak : null;
   for (let team = 0; team < TEAM_COUNT; team += 1) {
-    ctx.drawImage(baseSprites[team], baseX[team] - 60, baseY[team] - 64, 120, 120);
-    if (shieldUntil[team] > now) ctx.drawImage(shieldSprite, baseX[team] - 72, baseY[team] - 72, 144, 144);
+    const k = baseK;
+    ctx.drawImage(baseSprites[team], baseX[team] - 60 * k, baseY[team] - 64 * k, 120 * k, 120 * k);
+    if (shieldUntil[team] > now) ctx.drawImage(shieldSprite, baseX[team] - 72 * k, baseY[team] - 72 * k, 144 * k, 144 * k);
     if (streak && streak.count >= 3 && teams[team].code === streak.team) {
-      ctx.drawImage(crownSprite, baseX[team] - 62, baseY[team] - 62, 40, 29);
+      ctx.drawImage(crownSprite, baseX[team] - 62 * k, baseY[team] - 62 * k, 40 * k, 29 * k);
     }
   }
   drawLabels(now);
@@ -2768,7 +2786,7 @@ function updateDebug(now) {
     bannerText,
     phaseLeft,
     labels: Array.from(labelRects.slice(0, labelCount * 4)),
-    zones: { safeX, titleTop, hudTop, arenaTop, arenaH, visibleH, bannerTop, bannerH, decoTop },
+    zones: { baseSize, safeX, titleTop, hudTop, arenaTop, arenaH, visibleH, bannerTop, bannerH, decoTop },
     emojiOk,
     flagsOk,
   };
