@@ -312,6 +312,11 @@ def test_http_routes(tmp_path, wilayah, moderator):
         assert len(json.loads(await data.text())["provinces"]) == 27
         index = await client.get("/")
         assert index.status == 200
+        for weight in (700, 800):
+            font = await client.get(f"/fonts/inter-latin-{weight}-normal.woff2")
+            assert font.status == 200
+            assert font.headers["Content-Type"] == "font/woff2"
+            assert (await font.read())[:4] == b"wOF2"
         traversal = await client.get("/../config.json")
         assert traversal.status in (200, 403, 404)
         secret = await client.get("/%2e%2e/backend/server.py")

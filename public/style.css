@@ -1,3 +1,17 @@
+/* Font disertakan (Inter, lisensi OFL di fonts/OFL.txt) supaya huruf sama persis di PC Windows, HP, dan OBS. */
+@font-face {
+  font-family: "Inter Siaran";
+  font-weight: 700;
+  font-display: block;
+  src: url("fonts/inter-latin-700-normal.woff2") format("woff2");
+}
+@font-face {
+  font-family: "Inter Siaran";
+  font-weight: 800;
+  font-display: block;
+  src: url("fonts/inter-latin-800-normal.woff2") format("woff2");
+}
+
 :root {
   --bg: #05060d;
   --panel: #151827;
@@ -17,7 +31,7 @@ html, body {
   overflow: hidden;
   background: var(--bg);
   color: var(--text);
-  font-family: system-ui, -apple-system, "Segoe UI", Roboto, "Noto Sans", sans-serif;
+  font-family: "Inter Siaran", system-ui, -apple-system, "Segoe UI", Roboto, "Noto Sans", sans-serif;
   -webkit-tap-highlight-color: transparent;
   -webkit-user-select: none;
   user-select: none;

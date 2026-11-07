@@ -370,6 +370,9 @@ async def wilayah_handler(request: web.Request) -> web.Response:
 
 async def no_cache(request: web.Request, response: web.StreamResponse) -> None:
     response.headers["Cache-Control"] = "no-cache"
+    # Tabel MIME aiohttp tidak selalu mengenal .woff2, sehingga font terkirim sebagai application/octet-stream.
+    if request.path.endswith(".woff2"):
+        response.headers["Content-Type"] = "font/woff2"
 
 
 def build_app(hub: Hub) -> web.Application:

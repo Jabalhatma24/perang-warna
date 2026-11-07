@@ -191,10 +191,21 @@ Jangan meminimalkan jendela game. Flag di perintah tadi menjaga game tetap berja
 Window Capture menangkap jendela yang lebih kecil dari 1080x1920 lalu memperbesarnya, jadi hasilnya lebih buram. Sumber **Link** merender game langsung:
 
 1. **Add source > Link**, isi alamat operator dengan tambahan `?autostart=1&check=1`, misalnya `http://localhost:8080/?autostart=1&check=1#key=<kunci>`. Kalau ada kolom lebar dan tinggi, isi **1080** dan **1920**.
-2. Lihat kotak di tengah pratinjau. **Hijau "OK: 1080x1920 TAJAM"** berarti kanvas tepat 1:1 dengan siaran. Kalau **merah**, ukuran sumber belum pas; perbaiki sampai hijau.
+2. Lihat kotak di tengah pratinjau. **Hijau "OK: 1080x1920 TAJAM"** berarti kanvas tepat 1:1 dengan siaran dan baris `font` berisi `Inter Siaran`. Kalau **merah**, ukuran sumber belum pas atau font gagal dimuat; perbaiki sampai hijau.
 3. Hapus `&check=1` dari alamat, lalu muat ulang sumbernya. Kotak itu ikut tersiar kalau dibiarkan.
 
 Di PC dan dengan `?autostart=1`, resolusi game dikunci penuh. Dulu game menurunkan resolusi sampai 72% kalau FPS di bawah 45. Padahal sumber Link dan Browser Source sering dibatasi 30 FPS oleh aplikasinya, jadi siaran menjadi buram tanpa terlihat. Penurunan otomatis itu kini hanya berlaku di HP yang menyiarkan layarnya sendiri. Kalau PC Anda benar-benar terlalu lemah untuk 1080x1920, tambahkan `&adaptive=1`.
+
+### Siaran masih buram?
+
+Periksa berurutan, dari penyebab terbesar:
+
+1. **Pakai sumber Link, bukan Window Capture.** Jendela dari perintah `--app` hanya 608x1080 pada skala tampilan 100%, jadi Window Capture memperbesarnya sekitar 1,78x sebelum dikirim ke TikTok.
+2. **Kotak `?check=1` harus hijau** dengan `kanvas 1080x1920`, `kualitas 1.00 (dikunci)`, dan `font Inter Siaran`.
+3. **Pengaturan video TikTok LIVE Studio:** resolusi 1080p, 30 FPS, dan bitrate setinggi yang masih stabil di koneksi Anda. Pada bitrate yang sama, 30 FPS memberi tiap frame dua kali lebih banyak data daripada 60 FPS, jadi teks lebih tajam.
+4. **Kualitas di HP penonton** dipilih TikTok sesuai jaringan HP itu. Saat menguji dengan HP kedua, pakai Wi-Fi yang kencang dan pilih kualitas tertinggi kalau menunya tersedia.
+
+Game memakai font sendiri (Inter, di `public/fonts`) supaya huruf di Windows sama dengan di HP dan OBS. Dulu game memakai font sistem: Windows menampilkan bobot 800 sebagai Segoe UI Black, dan bersama outline tebal lubang huruf tertutup sehingga teks menggumpal setelah dikompres. Outline kini 12% dari besar huruf, dan teks di chip kuning dan hijau berwarna gelap.
 
 **OBS sebagai alternatif:** tambahkan Browser Source ke `http://localhost:8080/#key=<kunci>` dengan ukuran 1080x1920, centang kontrol audio lewat OBS, lalu klik kanan > Interact untuk menekan START.
 
@@ -270,6 +281,7 @@ set SIGN_API_KEY=kunci-anda             &rem Windows
 | `public/js/net.js` | WebSocket dan reconnect |
 | `public/js/localsim.js` | Bot darurat di HP |
 | `public/js/sfxtest.js` | Halaman uji suara |
+| `public/fonts/` | Font Inter 700 dan 800 (lisensi SIL OFL 1.1 di `OFL.txt`) |
 
 Jalankan tes dengan `.venv/bin/python -m pytest -q` (Windows: `.venv\Scripts\python -m pytest -q`).
 

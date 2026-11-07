@@ -22,7 +22,10 @@ const CHECK = params.get('check') === '1';
 
 const W = 1080;
 const H = 1920;
-const FONT = 'system-ui, -apple-system, "Segoe UI", Roboto, "Noto Sans", sans-serif';
+// Font disertakan di public/fonts. Dengan font sistem, Windows memakai Segoe UI Black untuk bobot 800:
+// lubang huruf (a, e, s) tertutup outline dan teks menggumpal setelah kompresi video TikTok.
+const FONT_FAMILY = 'Inter Siaran';
+const FONT = `"${FONT_FAMILY}", system-ui, -apple-system, "Segoe UI", Roboto, "Noto Sans", sans-serif`;
 const TAU = Math.PI * 2;
 // Harus sama dengan jumlah kubu di data/wilayah.json: 4 pulau besar Nusantara.
 const TEAM_COUNT = 4;
@@ -580,15 +583,50 @@ function resizeUiLayers() {
   overlayKind = '';
 }
 
-// Outline ikut besar huruf (sekitar 18%): kompresi video 4:2:0 mengikis tepi huruf berwarna di latar gelap.
-function outlinedText(c, text, x, y, width = 4) {
+// Outline tipis yang ikut besar huruf (12%, minimal 2 px): cukup menjaga tepi huruf berwarna dari kompresi
+// 4:2:0, tetapi tidak menutup lubang huruf kecil. Outline 18% dulu membuat teks 20-24 px menggumpal di siaran.
+function outlinedText(c, text, x, y) {
   const size = Number(/(\d+(?:\.\d+)?)px/.exec(c.font)?.[1]) || 20;
   c.lineJoin = 'round';
   c.miterLimit = 2;
-  c.lineWidth = Math.max(width, Math.round(size * 0.18));
+  c.lineWidth = Math.max(2, Math.round(size * 0.12));
   c.strokeStyle = 'rgba(0,0,0,0.85)';
   c.strokeText(text, x, y);
   c.fillText(text, x, y);
+}
+
+// Teks di chip warna pulau: gelap di warna terang (kuning, hijau), putih ber-outline di warna gelap (merah, biru).
+// Yang bertahan dari kompresi adalah beda terang-gelap; putih di kuning nyaris tak berbeda terangnya.
+function chipInk(team) {
+  const [r, g, b] = team.rgb;
+  return 0.2126 * r + 0.7152 * g + 0.0722 * b > 140 ? '#07080f' : '#ffffff';
+}
+
+function chipText(c, team, text, x, y) {
+  const ink = chipInk(team);
+  c.fillStyle = ink;
+  if (ink === '#ffffff') outlinedText(c, text, x, y);
+  else c.fillText(text, x, y);
+}
+
+async function loadFonts() {
+  if (!document.fonts) return;
+  const faces = ['700', '800'].map((weight) => document.fonts.load(`${weight} 32px "${FONT_FAMILY}"`));
+  // Jangan sampai game tertahan kalau berkas font hilang: setelah 3 detik font sistem dipakai.
+  const timeout = new Promise((resolve) => setTimeout(resolve, 3000));
+  try {
+    await Promise.race([Promise.all(faces), timeout]);
+  } catch (error) {
+    console.warn('Font siaran gagal dimuat, memakai font sistem', error);
+  }
+}
+
+function fontLoaded() {
+  if (!document.fonts) return false;
+  for (const face of document.fonts) {
+    if (face.family.replace(/"/g, '') === FONT_FAMILY && face.weight === '800') return face.status === 'loaded';
+  }
+  return false;
 }
 
 // Menyalin lapisan 1:1 ke piksel layar. Posisi pecahan akan membuat seluruh teks buram.
@@ -1280,11 +1318,11 @@ function renderBanner(now) {
   if (bannerText) {
     fitFont(c, bannerText, W - safeX * 2, 46, 800, 28);
     c.fillStyle = bannerColor;
-    outlinedText(c, bannerText, W / 2, lineY, 8);
+    outlinedText(c, bannerText, W / 2, lineY);
   } else {
     fitFont(c, tipText, W - safeX * 2, 34, 800, 26);
     c.fillStyle = '#ffd25a';
-    outlinedText(c, tipText, W / 2, lineY, 4);
+    outlinedText(c, tipText, W / 2, lineY);
   }
   drawGiftStrip(c, GIFT_STRIP_TOP, bannerH - BANNER_LINE_H - GIFT_STRIP_TOP - 2);
 }
@@ -2198,13 +2236,12 @@ function drawTopLikes(c, y) {
       c.stroke();
       c.font = chipFont(size);
       c.textAlign = 'center';
-      c.fillStyle = '#ffffff';
-      outlinedText(c, seg.chip.label, x + segW / 2, y + 1, 3);
+      chipText(c, seg.chip, seg.chip.label, x + segW / 2, y + 1);
       c.font = `800 ${size}px ${FONT}`;
       c.textAlign = 'left';
     } else {
       c.fillStyle = seg.color;
-      outlinedText(c, seg.text, x, y, 5);
+      outlinedText(c, seg.text, x, y);
     }
     x += segW + (i < segments.length - 1 ? seg.gap * size / 30 : 0);
   });
@@ -2222,13 +2259,13 @@ function renderTitle() {
   } else {
     c.fillStyle = '#ffd25a';
     fitFont(c, 'PERANG PULAU NUSANTARA', W - safeX * 2, 42, 800, 28);
-    outlinedText(c, 'PERANG PULAU NUSANTARA', W / 2, height * 0.36, 5);
+    outlinedText(c, 'PERANG PULAU NUSANTARA', W / 2, height * 0.36);
   }
   c.textAlign = 'center';
   c.fillStyle = '#ffffff';
   const join = joinText();
   fitFont(c, join, W - safeX * 2, 30, 800, 24);
-  outlinedText(c, join, W / 2, height * 0.76, 4);
+  outlinedText(c, join, W / 2, height * 0.76);
 }
 
 // Papan skor berupa tabel satu kolom per kubu: posisi tiap angka tidak bergeser walau nilainya berubah.
@@ -2251,12 +2288,12 @@ function renderHud(now) {
   const timerWidth = c.measureText(timerText).width;
   const phaseLabel = phase === 'OVERTIME' ? `WAKTU TAMBAHAN • GIFT ${cfg.gift.overtimeMultiplier}X` : PHASE_LABEL[phase] || '';
   fitFont(c, phaseLabel, 330, 26, 800, 20);
-  outlinedText(c, phaseLabel, left + timerWidth + 14, rowY, 3);
+  outlinedText(c, phaseLabel, left + timerWidth + 14, rowY);
 
   c.textAlign = 'right';
   c.fillStyle = '#e4e7f5';
   c.font = `800 24px ${FONT}`;
-  outlinedText(c, `Ronde ${round} • ${viewerCount} penonton`, right - 30, rowY, 3);
+  outlinedText(c, `Ronde ${round} • ${viewerCount} penonton`, right - 30, rowY);
   c.beginPath();
   c.arc(right - 10, rowY, 9, 0, TAU);
   c.fillStyle = status.connected ? '#34c759' : '#ff3b30';
@@ -2301,10 +2338,9 @@ function renderHud(now) {
     c.strokeStyle = 'rgba(0,0,0,0.75)';
     c.stroke();
     c.textAlign = 'center';
-    c.fillStyle = '#ffffff';
     const name = `${team.no} ${shortName(team)}`;
     fitFont(c, name, colW - 18, 26, 800, 20);
-    outlinedText(c, name, cx, chipTop + chipH / 2 + 1, 3);
+    chipText(c, team, name, cx, chipTop + chipH / 2 + 1);
 
     // Angka putih: video TikTok mengaburkan teks merah dan biru di atas latar gelap.
     const percent = `${Math.round(territoryShare(index) * 100)}%`;
@@ -2321,12 +2357,12 @@ function renderHud(now) {
     c.drawImage(isStreak ? crownSprite : starSprite, winsX, winsY - 11, 22, isStreak ? 16 : 22);
     c.textAlign = 'left';
     c.fillStyle = '#ffd25a';
-    outlinedText(c, wins, winsX + 25, winsY, 3);
+    outlinedText(c, wins, winsX + 25, winsY);
     if (boost) {
       c.textAlign = 'right';
       c.fillStyle = '#7dffb0';
       fitFont(c, boost, colW - 22 - winsW, 24, 800, 20);
-      outlinedText(c, boost, x + colW - 8, winsY, 3);
+      outlinedText(c, boost, x + colW - 8, winsY);
     }
   });
 
@@ -2406,10 +2442,10 @@ function renderKlasemen() {
     c.strokeStyle = 'rgba(0,0,0,0.75)';
     c.stroke();
     c.textAlign = 'center';
-    c.fillStyle = '#ffffff';
     c.font = `800 22px ${FONT}`;
-    outlinedText(c, `${row.team.no} ${row.team.label}`, panel.x + 48, y + 1, 3);
+    chipText(c, row.team, `${row.team.no} ${row.team.label}`, panel.x + 48, y + 1);
     c.textAlign = 'left';
+    c.fillStyle = '#ffffff';
     fitFont(c, row.team.name, rightX - panel.x - 150, 26, 800, 20);
     c.fillText(row.team.name, panel.x + 92, y + 1);
     c.textAlign = 'right';
@@ -2496,7 +2532,7 @@ function renderCrownOverlay() {
   c.fillStyle = team.color;
   const title = `PULAU ${team.name.toUpperCase()}`;
   fitFont(c, title, width, 64, 800, 36);
-  outlinedText(c, title, W / 2, 124, 8);
+  outlinedText(c, title, W / 2, 124);
   c.fillStyle = '#ffffff';
   const streakNote = crownResult.streak >= 2 ? ` • ${crownResult.streak}X BERUNTUN` : '';
   const victory = `JUARA +1 WIN • ${crownResult.territory[team.code]}%${streakNote}`;
@@ -2529,7 +2565,7 @@ function renderCrownOverlay() {
     const liker = `♥ Top Liker: ${nick}${from} • ${formatCount(likes)} like`;
     c.fillStyle = '#ff5d8f';
     fitFont(c, liker, width, 30, 800, 22);
-    outlinedText(c, liker, W / 2, 404, 5);
+    outlinedText(c, liker, W / 2, 404);
   }
 }
 
@@ -2927,14 +2963,26 @@ function updateCheck(now) {
   const element = document.getElementById('check');
   const dpr = window.devicePixelRatio || 1;
   const exact = canvas.width === W && canvas.height === H && qualityFactor === 1;
-  element.classList.toggle('bad', !exact);
+  const font = fontLoaded();
+  const ok = exact && font;
+  element.classList.toggle('bad', !ok);
+  let verdict = 'OK: 1080x1920 TAJAM';
+  let advice = 'Hapus ?check=1 sebelum siaran.';
+  if (!exact) {
+    verdict = 'BELUM PAS: periksa ukuran sumber';
+    advice = 'Atur sumber Link ke 1080x1920.';
+  } else if (!font) {
+    verdict = 'FONT BELUM TERMUAT';
+    advice = 'Muat ulang sumber; folder public/fonts harus ada.';
+  }
   element.textContent = [
-    exact ? 'OK: 1080x1920 TAJAM' : 'BELUM PAS: periksa ukuran sumber',
+    verdict,
     `kanvas   ${canvas.width}x${canvas.height}`,
     `viewport ${window.innerWidth}x${window.innerHeight} @${dpr}x`,
     `kualitas ${qualityFactor.toFixed(2)} (${LOCK_QUALITY ? 'dikunci' : 'adaptif'})`,
+    `font     ${font ? FONT_FAMILY : 'font sistem (cadangan)'}`,
     `FPS      ${fps.toFixed(0)}`,
-    exact ? 'Hapus ?check=1 sebelum siaran.' : 'Atur sumber Link ke 1080x1920.',
+    advice,
   ].join('\n');
 }
 
@@ -3189,7 +3237,8 @@ function setupStartScreen() {
 }
 
 async function boot() {
-  const [configResponse, wilayahResponse] = await Promise.all([fetch('config.json'), fetch('wilayah.json')]);
+  // Font dimuat sebelum sprite dan papan skor digambar, supaya tidak ada teks yang terlanjur memakai font cadangan.
+  const [configResponse, wilayahResponse] = await Promise.all([fetch('config.json'), fetch('wilayah.json'), loadFonts()]);
   cfg = await configResponse.json();
   wilayah = await wilayahResponse.json();
 
